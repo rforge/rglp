@@ -8,18 +8,18 @@
   problems.
 }
 \usage{
-glp_solve(objective_coef, constr_mat, rhs, directions, integers,
-maximize = FALSE, verbose = FALSE)
+glp_solve(obj, mat, dir, rhs, int,
+max = FALSE, verbose = FALSE)
 }
 \arguments{
-  \item{objective_coef}{a vector with the objective coefficients}
-  \item{constr_mat}{a vector or a matrix of the constraint coefficients}
+  \item{obj}{a vector with the objective coefficients}
+  \item{mat}{a vector or a matrix of the constraint coefficients}
+  \item{dir}{a character vector with the directions of the constraints
+        ("<","<=", ...)} 
   \item{rhs}{the right hand side of the linear problem}
-  \item{directions}{a character vector with the directions of the constraints
-    ("<","<=", ...)} 
-  \item{integers}{a vector with logical values, "TRUE" means that the
+  \item{int}{a vector with logical values, "TRUE" means that the
     corresponding objective variable should be of type integer}
-  \item{maximize}{the direction of the optimization. TRUE means that the
+  \item{max}{the direction of the optimization. TRUE means that the
     objective is to maximize the linear problem, FALSE (default) means
     to minimize it}
   \item{verbose}{Turn on/off solver more output: TRUE or FALSE (default)}
@@ -59,7 +59,7 @@ rhs <- c(60,40,80)
 int <- c(FALSE,FALSE,FALSE)
 max <- TRUE
 
-glp_solve(obj, mat, rhs, dir, int, max)
+glp_solve(obj, mat, dir, rhs, int, max)
 
 ## simple mixed integer program (Ex. 54 of Hanke/Nettekoven 2003: 
 ## "Linear Programming")
@@ -71,7 +71,7 @@ rhs <- c(4,2,3)
 int <- c(TRUE,FALSE,TRUE)
 max <- TRUE
 
-glp_solve(obj, mat, rhs, dir, int, max)
+glp_solve(obj, mat, dir, rhs, int, max)
 }
 \keyword{optimize}
 

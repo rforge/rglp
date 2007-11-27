@@ -1,14 +1,14 @@
 ## the R-ported GNU Linear Programming kit
 ## solve function --- C Interface
 
-glp_solve <- function(objective_coef, constr_mat, rhs, directions, integers,
-                      maximize = FALSE, verbose = FALSE){
+glp_solve <- function(obj, mat, dir, rhs, int,
+                      max = FALSE, verbose = FALSE){
   
   ## direction of optimization
-  if(!is.logical(maximize))
+  if(!is.logical(max))
     stop("'maximize' can be either TRUE or FALSE")
   direction_of_optimization <- 0
-  if(maximize)
+  if(max)
     direction_of_optimization <- 1
   ## verbosity flag
   if(!is.logical(verbose))
@@ -17,21 +17,21 @@ glp_solve <- function(objective_coef, constr_mat, rhs, directions, integers,
   if(verbose)
     verb <- 1
   ## match direction of constraints
-  n_of_constraints <- length(directions)
-  direction_of_constraints <- glp_match_directions(directions, n_of_constraints)
+  n_of_constraints <- length(dir)
+  direction_of_constraints <- glp_match_directions(dir, n_of_constraints)
   
-  n_of_objective_vars <- length(objective_coef)
+  n_of_objective_vars <- length(obj)
 
-  constraint_matrix <- glp_matrix(constr_mat)
+  constraint_matrix <- glp_matrix(mat)
 
   ## do we have a mixed integer linear program?
-  is_integer <- any(integers)
+  is_integer <- any(int)
 
   ## call the C interface - this actually runs the solver
-  x <- glp_call_interface(objective_coef, n_of_objective_vars, constraint_matrix$i,
+  x <- glp_call_interface(obj, n_of_objective_vars, constraint_matrix$i,
                           constraint_matrix$j,constraint_matrix$v, length(constraint_matrix$v),
                           rhs, direction_of_constraints, n_of_constraints, is_integer,
-                          integers, direction_of_optimization, verb)
+                          int, direction_of_optimization, verb)
   out <- list(optimum=NULL, solution=NULL)
   out$optimum <- x$lp_optimum
   out$solution <- x$lp_objective_vars_values
