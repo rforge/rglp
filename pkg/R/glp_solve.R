@@ -35,6 +35,12 @@ glp_solve <- function(obj, mat, dir, rhs, int,
   out <- list(optimum=NULL, solution=NULL)
   out$optimum <- x$lp_optimum
   out$solution <- x$lp_objective_vars_values
+  ## match status of solution
+  ## 0 -> optimal solution (5 in GLPK) else 1
+  stat <- 1
+  if(x$lp_status==5)
+    stat <- 0
+  out$status <- stat
   out
 }
 
@@ -107,6 +113,7 @@ glp_call_interface <- function(lp_objective_coefficients, lp_n_of_objective_vars
             lp_optimum                  = double(1),
             lp_objective_vars_values    = double(lp_n_of_objective_vars),
             lp_verbosity                = as.integer(verbose),
+            lp_status                   = integer(1),
             PACKAGE = "Rglp")
   out
 }

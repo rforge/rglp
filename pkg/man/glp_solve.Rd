@@ -34,8 +34,9 @@ max = FALSE, verbose = FALSE)
   package "glpk"). 
 }
 \value{
-  A list containing the optimal solution as well as the corresponding
-  values of the objectives.
+  A list containing the optimal solution,  the corresponding
+  values of the objectives and the status information of the solution (0
+  -> optimal solution, 1 -> not feasible, undefined or unbounded solution).
 }
 \references{
   GNU Linear Programming Kit.

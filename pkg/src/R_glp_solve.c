@@ -18,7 +18,7 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
 		  double *lp_constraint_matrix_values,  
 		  double *lp_optimum,
 		  double *lp_objective_vars_values,
-		  int *lp_verbosity) {
+		  int *lp_verbosity, int *lp_status) {
 
   glp_prob *lp;
   int i;
@@ -65,7 +65,6 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
   // add columns to the problem object
   glp_add_cols(lp, *lp_number_of_objective_vars);
   for(i = 0; i < *lp_number_of_objective_vars; i++) {
-    Rprintf("Set bounds on column %d : %f \n", i+1, lp_objective_coefficients[i]);
     glp_set_col_bnds(lp, i+1, GLP_LO, 0.0, 0.0);
     glp_set_obj_coef(lp, i+1, lp_objective_coefficients[i]);
     if(lp_objective_var_is_integer[i])
@@ -83,14 +82,22 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
   // run simplex method to solve linear problem
   glp_simplex(lp, NULL);
   
+  // retrieve status of optimization
+  *lp_status = glp_get_status(lp);
+  // retrieve optimum
   *lp_optimum = glp_get_obj_val(lp);
-  
+  // retrieve values of objective vars
   for(i = 0; i < *lp_number_of_objective_vars; i++) {
     lp_objective_vars_values[i] = glp_get_col_prim(lp, i+1);
   }
   if(lp_is_integer) {
     glp_intopt(lp, NULL);
+    // retrieve status of optimization
+    *lp_status = glp_mip_status(lp);
+    
+    // retrieve MIP optimum
     *lp_optimum = glp_mip_obj_val(lp);
+    // retrieve MIP values of objective vars
     for(i = 0; i < *lp_number_of_objective_vars; i++){
       lp_objective_vars_values[i] = glp_mip_col_val(lp, i+1);
     }
