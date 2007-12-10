@@ -15,13 +15,17 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
 									//boolean 
 		  int *lp_number_of_values_in_constraint_matrix,
 		  int *lp_constraint_matrix_i, int *lp_constraint_matrix_j,
-		  double *lp_constraint_matrix_values,  
+		  double *lp_constraint_matrix_values,
+		  int *lp_lower_bounds_i, double *lp_lower_bounds_v,
+		  int *lp_n_of_bounds_l,
+		  int *lp_upper_bounds_i, double *lp_upper_bounds_v,
+		  int *lp_n_of_bounds_u,
 		  double *lp_optimum,
 		  double *lp_objective_vars_values,
 		  int *lp_verbosity, int *lp_status) {
 
   glp_prob *lp;
-  int i;
+  int i, kl, ku;
   // create problem object 
   lp = glp_create_prob();
 
@@ -64,10 +68,104 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
   
   // add columns to the problem object
   glp_add_cols(lp, *lp_number_of_objective_vars);
+  kl = ku = 0;
   for(i = 0; i < *lp_number_of_objective_vars; i++) {
-    glp_set_col_bnds(lp, i+1, GLP_LO, 0.0, 0.0);
+        
+    /* set column bounds
+       we get 4 vectors containing indices and positions of bounds
+       from R.
+       we have to test if the index vectors are empty and apply
+       different parts of the code on the remaining:
+       -- if all are non-empty we have to look for
+          GLP_FR (only the case when lower == -Inf and upper == Inf; same
+	  index)
+	  GLP_LO (if there is a lower but no upper bound; same index)
+	  GLP_UP (if there is an upper but no lower bound; same index)
+	  GLP_DB (if there is a lower and an upper bound; same index)
+	  GLP_FX (if there is a lower and an upper bound, both have same
+	  values) 
+       -- if only one of them is non-empty we have to look for
+          either GLP_LO or GLP_UP
+       -- default 
+          GLP_LO (between 0.0 and Inf)
+     */
+    if ((*lp_n_of_bounds_l > 0) && (*lp_n_of_bounds_u > 0))
+      if (lp_lower_bounds_i[kl] == i+1) {
+	if (lp_upper_bounds_i[ku] == i+1) {
+	  if (lp_lower_bounds_v[kl] == lp_upper_bounds_v[ku]){
+	    if(*lp_verbosity==1)
+	      Rprintf("GLP_FX: %f \n", lp_lower_bounds_v[kl]);
+	    glp_set_col_bnds(lp, i+1, GLP_FX, lp_lower_bounds_v[kl], 0.0);
+	  }
+	  else {
+	    if((lp_lower_bounds_v[kl]==R_NegInf) && (lp_upper_bounds_v[ku]==R_PosInf)){
+	      if(*lp_verbosity==1)
+		Rprintf("GLP_FR: -oo, oo \n");
+	      glp_set_col_bnds(lp, i+1, GLP_FR, 0.0, 0.0);
+	    }
+	    else{
+	      if(*lp_verbosity==1)
+		Rprintf("GLP_DB: %f, %f \n", lp_lower_bounds_v[kl], lp_upper_bounds_v[ku]);
+	      glp_set_col_bnds(lp, i+1, GLP_DB, lp_lower_bounds_v[kl], lp_upper_bounds_v[ku]);
+	    }
+	  }
+	  if (ku < *lp_n_of_bounds_u)
+	    ku++;
+	} else{
+	  if(*lp_verbosity==1)
+	    Rprintf("GLP_LO: %f \n", lp_lower_bounds_v[kl]);
+	  glp_set_col_bnds(lp, i+1, GLP_LO, lp_lower_bounds_v[kl], 0.0);
+	}
+	if (kl < *lp_n_of_bounds_l)
+	  kl++;
+      } else if (lp_upper_bounds_i[ku] == i+1) {
+	if(*lp_verbosity==1)
+	  Rprintf("GLP_UP: %f \n", lp_lower_bounds_v[kl], lp_upper_bounds_v[ku]);
+	glp_set_col_bnds(lp, i+1, GLP_UP, 0.0, lp_upper_bounds_v[ku]);
+	if (ku < *lp_n_of_bounds_u)
+	  ku++;
+      } else {
+      // default: 0 <= x < oo
+	if(*lp_verbosity==1)
+	  Rprintf("default double: GLP_LO: 0, oo \n");
+	glp_set_col_bnds(lp, i+1, GLP_LO, 0.0, 0.0);
+      }
+    else if (*lp_n_of_bounds_l > 0)
+      if (lp_lower_bounds_i[kl] == i+1) {
+	if(*lp_verbosity==1)
+	  Rprintf("GLP_LO only: %f \n", lp_lower_bounds_v[kl]);
+	glp_set_col_bnds(lp, i+1, GLP_LO, lp_lower_bounds_v[kl], 0.0);
+	if (kl < *lp_n_of_bounds_l)
+	  kl++;
+      }else {
+	if(*lp_verbosity==1)
+	  Rprintf("default only: GLP_LO: 0, oo \n");
+	// default: 0 <= x < oo
+	glp_set_col_bnds(lp, i+1, GLP_LO, 0.0, 0.0);
+      }
+    else if (*lp_n_of_bounds_u > 0)
+      if (lp_upper_bounds_i[ku] == i+1) {
+	if(*lp_verbosity==1)
+	  Rprintf("GLP_UP only: %f \n", lp_upper_bounds_v[ku]);
+	glp_set_col_bnds(lp, i+1, GLP_UP, 0.0, lp_upper_bounds_v[ku]);
+	if (ku < *lp_n_of_bounds_u)
+	  ku++;
+      }else{
+	if(*lp_verbosity==1)
+	  Rprintf("default only: GLP_LO: 0, oo \n");
+	// default: 0 <= x < oo
+	glp_set_col_bnds(lp, i+1, GLP_LO, 0.0, 0.0);
+      }
+    else{
+      if(*lp_verbosity==1)
+	Rprintf("default nothing: GLP_LO: 0, oo \n");
+      // default: 0 <= x < oo
+      glp_set_col_bnds(lp, i+1, GLP_LO, 0.0, 0.0);
+    }
+    
+    // set objective coefficients and integer if necessary
     glp_set_obj_coef(lp, i+1, lp_objective_coefficients[i]);
-    if(lp_objective_var_is_integer[i])
+    if (lp_objective_var_is_integer[i])
       glp_set_col_kind(lp, i+1, GLP_IV);
   }
   // load the matrix
@@ -90,7 +188,7 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
   for(i = 0; i < *lp_number_of_objective_vars; i++) {
     lp_objective_vars_values[i] = glp_get_col_prim(lp, i+1);
   }
-  if(lp_is_integer) {
+  if(*lp_is_integer) {
     glp_intopt(lp, NULL);
     // retrieve status of optimization
     *lp_status = glp_mip_status(lp);

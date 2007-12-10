@@ -9,7 +9,9 @@
 }
 \usage{
 glp_solve(obj, mat, dir, rhs, int,
-max = FALSE, verbose = FALSE)
+max = FALSE, bounds = list(lower = list(NULL,NULL),
+                           upper = list(NULL,NULL)),
+verbose = FALSE)
 }
 \arguments{
   \item{obj}{a vector with the objective coefficients}
@@ -17,12 +19,16 @@ max = FALSE, verbose = FALSE)
   \item{dir}{a character vector with the directions of the constraints
         ("<","<=", ...)} 
   \item{rhs}{the right hand side of the linear problem}
-  \item{int}{a vector with logical values, "TRUE" means that the
-    corresponding objective variable should be of type integer}
+  \item{int}{a vector with indices representing which objective
+    variable should be of type integer}
   \item{max}{the direction of the optimization. TRUE means that the
     objective is to maximize the linear problem, FALSE (default) means
     to minimize it}
-  \item{verbose}{Turn on/off solver more output: TRUE or FALSE (default)}
+  \item{bounds}{a list containing an element 'upper' as well as an
+  element 'lower' containing the indices and corresponding bounds of the
+  objective variable. The default for each variable is a bound between 0
+  and Infinity (NULL or not listed in 'bounds').}
+  \item{verbose}{Turn on/off additional solver output: TRUE or FALSE (default)}
 }
 \details{
   The GNU Linear Programming Kit is Open Source. The current version can
@@ -53,14 +59,13 @@ max = FALSE, verbose = FALSE)
 ## simple linear program (Ex. 17 of Hanke/Nettekoven 2003: "Linear 
 ## Programming")
 
-obj <- c(2,4,4)
+obj <- c(2,4,3)
 mat <- matrix(c(3,2,1,4,1,3,2,2,2),nrow=3)
 dir <- c("<=","<=","<=")
 rhs <- c(60,40,80)
-int <- c(FALSE,FALSE,FALSE)
 max <- TRUE
 
-glp_solve(obj, mat, dir, rhs, int, max)
+glp_solve(obj, mat, dir, rhs, max=max)
 
 ## simple mixed integer program (Ex. 54 of Hanke/Nettekoven 2003: 
 ## "Linear Programming")
@@ -69,7 +74,7 @@ obj <- c(3,1,3)
 mat <- matrix(c(-1,0,1,2,4,-3,1,-3,2),nrow=3)
 dir <- c("<=","<=","<=")
 rhs <- c(4,2,3)
-int <- c(TRUE,FALSE,TRUE)
+int <- c(1,3)
 max <- TRUE
 
 glp_solve(obj, mat, dir, rhs, int, max)
