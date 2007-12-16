@@ -1,5 +1,5 @@
-\name{glp_solve}
-\alias{glp_solve}
+\name{Rglpk_solve}
+\alias{Rglpk_solve}
 
 \title{Linear and Mixed Integer Programming Solver Using GLPK}
 \description{
@@ -8,10 +8,8 @@
   problems.
 }
 \usage{
-glp_solve(obj, mat, dir, rhs, int,
-max = FALSE, bounds = list(lower = list(NULL,NULL),
-                           upper = list(NULL,NULL)),
-verbose = FALSE)
+Rglpk_solve(obj, mat, dir, rhs, int,
+max = FALSE, bounds = NULL, verbose = FALSE)
 }
 \arguments{
   \item{obj}{a vector with the objective coefficients}
@@ -65,7 +63,7 @@ dir <- c("<=","<=","<=")
 rhs <- c(60,40,80)
 max <- TRUE
 
-glp_solve(obj, mat, dir, rhs, max=max)
+Rglpk_solve(obj, mat, dir, rhs, max=max)
 
 ## simple mixed integer program (Ex. 54 of Hanke/Nettekoven 2003: 
 ## "Linear Programming")
@@ -77,7 +75,7 @@ rhs <- c(4,2,3)
 int <- c(1,3)
 max <- TRUE
 
-glp_solve(obj, mat, dir, rhs, int, max)
+Rglpk_solve(obj, mat, dir, rhs, int, max)
 }
 \keyword{optimize}
 

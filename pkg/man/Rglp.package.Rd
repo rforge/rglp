@@ -1,6 +1,6 @@
-\name{Rglp-package}
-\alias{Rglp-package}
-\alias{Rglp}
+\name{Rglpk-package}
+\alias{Rglpk-package}
+\alias{Rglpk}
 \docType{package}
 \title{R/GNU Linear Programming Kit Interface}
 \description{
@@ -9,10 +9,10 @@ Kit engine.
 }
 \details{
 \tabular{ll}{
-Package: \tab Rglp\cr
+Package: \tab Rglpk\cr
 Type: \tab Package\cr
-Version: \tab 0.1-1\cr
-Date: \tab 2007-11-25\cr
+Version: \tab 0.1-5\cr
+Date: \tab 2007-12-16\cr
 License: \tab GPL version 2.1 or newer\cr
 }
 
