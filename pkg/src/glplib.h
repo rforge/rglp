@@ -24,16 +24,7 @@
 #ifndef _GLPLIB_H
 #define _GLPLIB_H
 
-#include <ctype.h>
-#include <errno.h>
-#include <float.h>
-#include <limits.h>
-#include <math.h>
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "glpstd.h"
 
 #define bigmul _glp_lib_bigmul
 void bigmul(int n, int m, unsigned short x[], unsigned short y[]);

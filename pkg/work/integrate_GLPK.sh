@@ -4,7 +4,7 @@
 
 ## where to put source files and headers
 URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
-latest="glpk-4.23.tar.gz"
+latest="glpk-4.24.tar.gz"
 DESTINATION=../src
 
 ## --------------------------------------------

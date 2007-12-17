@@ -167,10 +167,10 @@ typedef struct
 #define GLP_PP_ROOT     1  /* preprocessing only on root level */
 #define GLP_PP_ALL      2  /* preprocessing on all levels */
       double mip_gap;      /* relative MIP gap tolerance */
+      int mir_cuts;        /* MIR cuts (GLP_ON/GLP_OFF) */
       double foo_bar[35];  /* (reserved) */
 #if 1 /* not yet available */
       char *fn_sol;        /* file name to write solution found */
-      int mir_cuts;        /* MIR cuts (GLP_ON/GLP_OFF) */
 #endif
 } glp_iocp;
 

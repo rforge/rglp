@@ -408,8 +408,8 @@ void glp_init_iocp(glp_iocp *parm)
       parm->cb_size = 0;
       parm->pp_tech = GLP_PP_ALL;
       parm->mip_gap = 0.0;
-      parm->fn_sol = NULL;
       parm->mir_cuts = GLP_OFF;
+      parm->fn_sol = NULL;
       return;
 }
 

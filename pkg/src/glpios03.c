@@ -1054,9 +1054,7 @@ static void write_sol(glp_tree *tree)
 *  GLP_ESTOP
 *     The search was prematurely terminated by application. */
 
-#ifdef _GLP_USE_CUT_GEN
-int just_selected = 0;
-#endif
+static void separation(glp_tree *tree);
 
 int ios_driver(glp_tree *tree)
 {     glp_prob *mip = tree->mip;
@@ -1075,8 +1073,8 @@ back: /* at this point the current subproblem does not exist */
          ret = 0;
          goto done;
       }
-#ifdef _GLP_USE_CUT_GEN
-      just_selected = 1;
+#if 1
+      tree->just_selected = 1;
 #endif
       /* select some active subproblem to be solved next and make it
          current */
@@ -1375,7 +1373,7 @@ more: /* minor loop starts here; at this point the current subproblem
             goto fath;
          }
       }
-#ifdef _GLP_USE_CUT_GEN
+#if 1
       if (tree->parm->mir_cuts == GLP_ON)
       {  xassert(tree->reason == 0);
          tree->reason = GLP_ICUTGEN;
@@ -1417,8 +1415,8 @@ more: /* minor loop starts here; at this point the current subproblem
          }
 #endif
       }
-#ifdef _GLP_USE_CUT_GEN
-      just_selected = 0;
+#if 1
+      tree->just_selected = 0;
 #endif
       /* call the user-defined callback routine to choose branching
          variable */
@@ -1530,12 +1528,156 @@ fath: /* the current subproblem has been fathomed */
 done: /* display status of the search on exit from the solver */
       if (tree->parm->msg_lev >= GLP_MSG_ON)
          show_progress(tree, 0);
-#ifdef _GLP_USE_CUT_GEN
+#if 1
       if (tree->mir_gen != NULL)
-         ios_delete_mir(tree->mir_gen), tree->mir_gen = NULL;
+         ios_mir_term(tree->mir_gen), tree->mir_gen = NULL;
 #endif
       /* return to the calling program */
       return ret;
+}
+
+/**********************************************************************/
+
+#define cut_factor 0.30
+#define max_pool 10
+#define ub_min_eff 0.02
+#define max_par 0.1
+
+#define first_attempt (tree->first_attempt)
+#define max_added_cuts (tree->max_added_cuts)
+#define min_eff (tree->min_eff)
+#define miss (tree->miss)
+#define just_selected (tree->just_selected)
+
+static double efficacy(glp_tree *tree, IOSCUT *cut)
+{     glp_prob *mip = tree->mip;
+      IOSAIJ *aij;
+      double s = 0.0, t = 0.0;
+      for (aij = cut->ptr; aij != NULL; aij = aij->next)
+      {  xassert(1 <= aij->j && aij->j <= mip->n);
+         s += aij->val * mip->col[aij->j]->prim;
+         t += aij->val * aij->val;
+      }
+      xassert(cut->type == GLP_UP);
+      return (s <= cut->rhs ? 0.0 : (s - cut->rhs) / sqrt(t));
+}
+
+static double parallel(IOSCUT *a, IOSCUT *b, double work[])
+{     IOSAIJ *aij;
+      double s = 0.0, sa = 0.0, sb = 0.0;
+      for (aij = a->ptr; aij != NULL; aij = aij->next)
+      {  work[aij->j] = aij->val;
+         sa += aij->val * aij->val;
+      }
+      for (aij = b->ptr; aij != NULL; aij = aij->next)
+      {  s += work[aij->j] * aij->val;
+         sb += aij->val * aij->val;
+      }
+      for (aij = a->ptr; aij != NULL; aij = aij->next)
+         work[aij->j] = 0.0;
+      return s / sqrt(sa * sb);
+}
+
+struct cut { IOSCUT *cut; double eff; };
+
+static int fcmp(const void *x1, const void *x2)
+{     const struct cut *c1 = x1, *c2 = x2;
+      if (c1->eff > c2->eff) return -1;
+      if (c1->eff < c2->eff) return +1;
+      return 0;
+}
+
+static sort_pool(glp_tree *tree, IOSPOOL *pool)
+{     /* sort pool by decreasing efficacy */
+      struct cut *cuts = xcalloc(1+pool->size, sizeof(struct cut));
+      IOSCUT *cut;
+      int c = 0;
+      for (cut = pool->head; cut != NULL; cut = cut->next)
+         c++, cuts[c].cut = cut, cuts[c].eff = efficacy(tree, cut);
+      xassert(c == pool->size);
+      qsort(&cuts[1], pool->size, sizeof(struct cut), fcmp);
+      pool->head = pool->tail = NULL;
+      for (c = 1; c <= pool->size; c++)
+      {  cut = cuts[c].cut;
+         cut->prev = pool->tail;
+         cut->next = NULL;
+         if (cut->prev == NULL)
+            pool->head = cut;
+         else
+            cut->prev->next = cut;
+         pool->tail = cut;
+      }
+      xfree(cuts);
+      return;
+}
+
+static void separation(glp_tree *tree)
+{     /* separation strategy */
+      IOSPOOL *pool = NULL;
+      if (tree->curr->level == 0 && tree->mir_gen == NULL)
+            tree->mir_gen = ios_mir_init(tree);
+      xassert(tree->mir_gen != NULL);
+      if (first_attempt)
+         max_added_cuts = tree->mip->n;
+      if (tree->curr->level > 0 && !just_selected) goto done;
+      /* if added_cuts >= max_added_cuts then return */
+      if (tree->mip->m - tree->orig_m >= max_added_cuts) goto done;
+      /* add to POOL all the cuts violated by x* */
+      pool = ios_create_pool(tree);
+      ios_mir_gen(tree, tree->mir_gen, pool);
+      if (pool->size == 0) goto done;
+      /* sort POOL by decreasing efficacy; the first cut is the cut
+         with largest efficacy */
+      sort_pool(tree, pool);
+      /* remove the last |POOL| - max_pool cuts from POOL */
+      while (pool->size > max_pool)
+         ios_del_cut_row(tree, pool, pool->tail);
+      /* define the global variable min_eff */
+      if (first_attempt)
+      {  min_eff = 0.7 * efficacy(tree, pool->head);
+         if (min_eff > ub_min_eff) min_eff = ub_min_eff;
+         miss = 0;
+      }
+      if (efficacy(tree, pool->head) < min_eff)
+      {  miss++;
+         if (miss == 20) miss = 0, min_eff -= 0.03;
+         goto done;
+      }
+      /* adding cuts */
+      {  IOSCUT *cut, *next, *ccc;
+         int j;
+         double *work = xcalloc(1+tree->mip->n, sizeof(double));
+         int *ind = xcalloc(1+tree->mip->n, sizeof(int));
+         double *val = xcalloc(1+tree->mip->n, sizeof(double));
+         for (j = 1; j <= tree->mip->n; j++) work[j] = 0.0;
+         for (cut = pool->head; cut != NULL; cut = next)
+         {  next = cut->next;
+            if (efficacy(tree, cut) < min_eff) break; /* stop adding */
+            /* cut must not be parallel !!! */
+            for (ccc = pool->head; ccc != cut; ccc = ccc->next)
+               if (parallel(cut, ccc, work) > max_par) break;
+            if (ccc == cut)
+            {  /* cut accepted */
+               IOSAIJ *aij;
+               int len = 0, i;
+               i = glp_add_rows(tree->mip, 1);
+               for (aij = cut->ptr; aij != NULL; aij = aij->next)
+                  len++, ind[len] = aij->j, val[len] = aij->val;
+               glp_set_mat_row(tree->mip, i, len, ind, val);
+               glp_set_row_bnds(tree->mip, i, GLP_UP, 0.0, cut->rhs);
+            }
+            else
+            {  /* cut rejected */
+               ios_del_cut_row(tree, pool, cut);
+            }
+         }
+         xfree(work);
+         xfree(ind);
+         xfree(val);
+      }
+done: if (pool != NULL) ios_delete_pool(tree, pool);
+      first_attempt = 0;
+      return;
 }
 
 /* eof */

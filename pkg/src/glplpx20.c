@@ -364,10 +364,8 @@ static void display_help(const char *my_name)
       print("   --clique          generate clique cuts");
       print("   --gomory          generate Gomory's mixed integer cuts")
          ;
-#if 0
-      print("   --mir             generate mixed integer rounding cuts")
-         ;
-#endif
+      print("   --mir             generate MIR (mixed integer rounding)"
+         " cuts");
       print("   --cuts            generate all cuts above (assumes --in"
          "topt)");
 #ifdef _GLP_USE_MIPOPT

@@ -1131,7 +1131,7 @@ more:    if (!flag)
                fprintf(fp, " %s >= %.*g\n", cname, DBL_DIG, lb);
                break;
             case LPX_UP:
-               fprintf(fp, " %s <= %.*g\n", cname, DBL_DIG, ub);
+               fprintf(fp, " -inf <= %s <= %.*g\n", cname, DBL_DIG, ub);
                break;
             case LPX_DB:
                fprintf(fp, " %.*g <= %s <= %.*g\n", DBL_DIG, lb, cname,

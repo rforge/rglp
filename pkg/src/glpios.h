@@ -151,8 +151,16 @@ struct glp_tree
       /* statuses of all variables */
       /*--------------------------------------------------------------*/
       /* cut generator */
+#if 0
       void *cut_gen;
       /* pointer to working area used by the cut generator */
+#else
+      int first_attempt;
+      int max_added_cuts;
+      double min_eff;
+      int miss;
+      int just_selected;
+#endif
       void *mir_gen;
       /* pointer to working area used by the MIR cut generator */
       /*--------------------------------------------------------------*/
@@ -500,6 +508,20 @@ void ios_linear_comb(IOSVEC *x, double a, IOSVEC *y);
 #define ios_delete_vec _glp_ios_delete_vec
 void ios_delete_vec(IOSVEC *v);
 /* delete sparse vector */
+
+/**********************************************************************/
+
+#define ios_mir_init _glp_ios_mir_init
+void *ios_mir_init(glp_tree *tree);
+/* initialize MIR cut generator */
+
+#define ios_mir_gen _glp_ios_mir_gen
+void ios_mir_gen(glp_tree *tree, void *gen, IOSPOOL *pool);
+/* generate MIR cuts */
+
+#define ios_mir_term _glp_ios_mir_term
+void ios_mir_term(void *gen);
+/* terminate MIR cut generator */
 
 #endif
 

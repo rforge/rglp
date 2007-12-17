@@ -108,7 +108,15 @@ glp_tree *ios_create_tree(glp_prob *mip, const glp_iocp *parm)
       tree->pred_lb = tree->pred_ub = NULL;
       tree->pred_stat = NULL;
       /* cut generator */
+#if 0
       tree->cut_gen = NULL;
+#else
+      tree->first_attempt = 1;
+      tree->max_added_cuts = 0;
+      tree->min_eff = 0.0;
+      tree->miss = 0;
+      tree->just_selected = 0;
+#endif
       tree->mir_gen = NULL;
       /* create the conflict graph */
       tree->n_ref = xcalloc(1+n, sizeof(int));
@@ -806,7 +814,9 @@ void ios_delete_tree(glp_tree *tree)
       if (tree->pred_lb != NULL) xfree(tree->pred_lb);
       if (tree->pred_ub != NULL) xfree(tree->pred_ub);
       if (tree->pred_stat != NULL) xfree(tree->pred_stat);
+#if 0
       xassert(tree->cut_gen == NULL);
+#endif
       xassert(tree->mir_gen == NULL);
       xfree(tree);
       mip->tree = NULL;
