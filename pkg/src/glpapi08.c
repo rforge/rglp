@@ -266,6 +266,9 @@ int glp_intopt(glp_prob *mip, const glp_iocp *parm)
       if (!(parm->mir_cuts == GLP_ON || parm->mir_cuts == GLP_OFF))
          xfault("glp_intopt: mir_cuts = %d; invalid parameter\n",
             parm->mir_cuts);
+      if (!(parm->gmi_cuts == GLP_ON || parm->gmi_cuts == GLP_OFF))
+         xfault("glp_intopt: gmi_cuts = %d; invalid parameter\n",
+            parm->gmi_cuts);
       /* integer solution is currently undefined */
       mip->mip_stat = GLP_UNDEF;
       mip->mip_obj = 0.0;
@@ -409,6 +412,7 @@ void glp_init_iocp(glp_iocp *parm)
       parm->pp_tech = GLP_PP_ALL;
       parm->mip_gap = 0.0;
       parm->mir_cuts = GLP_OFF;
+      parm->gmi_cuts = GLP_OFF;
       parm->fn_sol = NULL;
       return;
 }

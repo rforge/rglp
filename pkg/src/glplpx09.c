@@ -185,6 +185,7 @@ static void gen_clique_cut(LPX *lp, void *cog)
       return;
 }
 
+#if 0
 /*----------------------------------------------------------------------
 -- gen_gomory_cut - try to generate Gomory's mixed integer cut.
 --
@@ -306,6 +307,7 @@ static void gen_gomory_cut(LPX *prob, int maxlen)
       xfree(work);
       return;
 }
+#endif
 
 /*----------------------------------------------------------------------
 -- generate_cuts - generate cutting planes.
@@ -315,7 +317,7 @@ static void gen_gomory_cut(LPX *prob, int maxlen)
 
 static int generate_cuts(LPX *prob, int use_cuts)
 {     void *cog = NULL;
-      int prob_m, prob_n, prob_nz, msg_lev, dual, nrows, it_cnt, ret,
+      int prob_m, prob_nz, msg_lev, dual, nrows, it_cnt, ret,
          cover = 0, clique = 0, gomory = 0;
       double out_dly, tm_lim;
       glp_ulong tm_lag = ulset(0, 0), tm_beg = xtime();
@@ -325,7 +327,9 @@ static int generate_cuts(LPX *prob, int use_cuts)
       /* determine the number of rows, columns, and non-zeros on entry
          to the routine */
       prob_m = lpx_get_num_rows(prob);
+#if 0
       prob_n = lpx_get_num_cols(prob);
+#endif
       prob_nz = lpx_get_num_nz(prob);
       /* save some control parameters */
       msg_lev = lpx_get_int_parm(prob, LPX_K_MSGLEV);
@@ -380,6 +384,7 @@ loop: /* main loop starts here */
             clique += lpx_get_num_rows(prob) - nrows;
          }
       }
+#if 0
       if (nrows == lpx_get_num_rows(prob))
       {  /* try to generate Gomory's mixed integer cut */
          if (use_cuts & LPX_C_GOMORY)
@@ -387,6 +392,7 @@ loop: /* main loop starts here */
             gomory += lpx_get_num_rows(prob) - nrows;
          }
       }
+#endif
       if (nrows == lpx_get_num_rows(prob))
       {  /* nothing has been generated */
          ret = LPX_E_OK;

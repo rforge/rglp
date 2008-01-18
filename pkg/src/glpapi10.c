@@ -542,4 +542,260 @@ void glp_btran(glp_prob *lp, double x[])
       return;
 }
 
+/***********************************************************************
+*  NAME
+*
+*  glp_eval_tab_row - compute row of the simplex tableau
+*
+*  SYNOPSIS
+*
+*  int glp_eval_tab_row(glp_prob *lp, int k, int ind[], double val[]);
+*
+*  DESCRIPTION
+*
+*  The routine glp_eval_tab_row computes a row of the current simplex
+*  tableau for the basic variable, which is specified by the number k:
+*  if 1 <= k <= m, x[k] is k-th auxiliary variable; if m+1 <= k <= m+n,
+*  x[k] is (k-m)-th structural variable, where m is number of rows, and
+*  n is number of columns. The current basis must be available.
+*
+*  The routine stores column indices and numerical values of non-zero
+*  elements of the computed row using sparse format to the locations
+*  ind[1], ..., ind[len] and val[1], ..., val[len], respectively, where
+*  0 <= len <= n is number of non-zeros returned on exit.
+*
+*  Element indices stored in the array ind have the same sense as the
+*  index k, i.e. indices 1 to m denote auxiliary variables and indices
+*  m+1 to m+n denote structural ones (all these variables are obviously
+*  non-basic by definition).
+*
+*  The computed row shows how the specified basic variable x[k] = xB[i]
+*  depends on non-basic variables:
+*
+*     xB[i] = alfa[i,1]*xN[1] + alfa[i,2]*xN[2] + ... + alfa[i,n]*xN[n],
+*
+*  where alfa[i,j] are elements of the simplex table row, xN[j] are
+*  non-basic (auxiliary and structural) variables.
+*
+*  RETURNS
+*
+*  The routine returns number of non-zero elements in the simplex table
+*  row stored in the arrays ind and val.
+*
+*  BACKGROUND
+*
+*  The system of equality constraints of the LP problem is:
+*
+*     xR = A * xS,                                                   (1)
+*
+*  where xR is the vector of auxliary variables, xS is the vector of
+*  structural variables, A is the matrix of constraint coefficients.
+*
+*  The system (1) can be written in homogenous form as follows:
+*
+*     A~ * x = 0,                                                    (2)
+*
+*  where A~ = (I | -A) is the augmented constraint matrix (has m rows
+*  and m+n columns), x = (xR | xS) is the vector of all (auxiliary and
+*  structural) variables.
+*
+*  By definition for the current basis we have:
+*
+*     A~ = (B | N),                                                  (3)
+*
+*  where B is the basis matrix. Thus, the system (2) can be written as:
+*
+*     B * xB + N * xN = 0.                                           (4)
+*
+*  From (4) it follows that:
+*
+*     xB = A^ * xN,                                                  (5)
+*
+*  where the matrix
+*
+*     A^ = - inv(B) * N                                              (6)
+*
+*  is called the simplex table.
+*
+*  It is understood that i-th row of the simplex table is:
+*
+*     e * A^ = - e * inv(B) * N,                                     (7)
+*
+*  where e is a unity vector with e[i] = 1.
+*
+*  To compute i-th row of the simplex table the routine first computes
+*  i-th row of the inverse:
+*
+*     rho = inv(B') * e,                                             (8)
+*
+*  where B' is a matrix transposed to B, and then computes elements of
+*  i-th row of the simplex table as scalar products:
+*
+*     alfa[i,j] = - rho * N[j]   for all j,                          (9)
+*
+*  where N[j] is a column of the augmented constraint matrix A~, which
+*  corresponds to some non-basic auxiliary or structural variable. */
+
+int glp_eval_tab_row(glp_prob *lp, int k, int ind[], double val[])
+{     int m = lp->m;
+      int n = lp->n;
+      int i, t, len, lll, *iii;
+      double alfa, *rho, *vvv;
+      if (!(m == 0 || lp->valid))
+         xfault("glp_eval_tab_row: basis factorization does not exist\n"
+            );
+      if (!(1 <= k && k <= m+n))
+         xfault("glp_eval_tab_row: k = %d; variable number out of range"
+            , k);
+      /* determine xB[i] which corresponds to x[k] */
+      if (k <= m)
+         i = glp_get_row_bind(lp, k);
+      else
+         i = glp_get_col_bind(lp, k-m);
+      if (i == 0)
+         xfault("glp_eval_tab_row: k = %d; variable must be basic", k);
+      xassert(1 <= i && i <= m);
+      /* allocate working arrays */
+      rho = xcalloc(1+m, sizeof(double));
+      iii = xcalloc(1+m, sizeof(int));
+      vvv = xcalloc(1+m, sizeof(double));
+      /* compute i-th row of the inverse; see (8) */
+      for (t = 1; t <= m; t++) rho[t] = 0.0;
+      rho[i] = 1.0;
+      glp_btran(lp, rho);
+      /* compute i-th row of the simplex table */
+      len = 0;
+      for (k = 1; k <= m+n; k++)
+      {  if (k <= m)
+         {  /* x[k] is auxiliary variable, so N[k] is a unity column */
+            if (glp_get_row_stat(lp, k) == GLP_BS) continue;
+            /* compute alfa[i,j]; see (9) */
+            alfa = - rho[k];
+         }
+         else
+         {  /* x[k] is structural variable, so N[k] is a column of the
+               original constraint matrix A with negative sign */
+            if (glp_get_col_stat(lp, k-m) == GLP_BS) continue;
+            /* compute alfa[i,j]; see (9) */
+            lll = glp_get_mat_col(lp, k-m, iii, vvv);
+            alfa = 0.0;
+            for (t = 1; t <= lll; t++) alfa += rho[iii[t]] * vvv[t];
+         }
+         /* store alfa[i,j] */
+         if (alfa != 0.0) len++, ind[len] = k, val[len] = alfa;
+      }
+      xassert(len <= n);
+      /* free working arrays */
+      xfree(rho);
+      xfree(iii);
+      xfree(vvv);
+      /* return to the calling program */
+      return len;
+}
+
+/***********************************************************************
+*  NAME
+*
+*  glp_eval_tab_col - compute column of the simplex tableau
+*
+*  SYNOPSIS
+*
+*  int glp_eval_tab_col(glp_prob *lp, int k, int ind[], double val[]);
+*
+*  DESCRIPTION
+*
+*  The routine glp_eval_tab_col computes a column of the current simplex
+*  table for the non-basic variable, which is specified by the number k:
+*  if 1 <= k <= m, x[k] is k-th auxiliary variable; if m+1 <= k <= m+n,
+*  x[k] is (k-m)-th structural variable, where m is number of rows, and
+*  n is number of columns. The current basis must be available.
+*
+*  The routine stores row indices and numerical values of non-zero
+*  elements of the computed column using sparse format to the locations
+*  ind[1], ..., ind[len] and val[1], ..., val[len] respectively, where
+*  0 <= len <= m is number of non-zeros returned on exit.
+*
+*  Element indices stored in the array ind have the same sense as the
+*  index k, i.e. indices 1 to m denote auxiliary variables and indices
+*  m+1 to m+n denote structural ones (all these variables are obviously
+*  basic by the definition).
+*
+*  The computed column shows how basic variables depend on the specified
+*  non-basic variable x[k] = xN[j]:
+*
+*     xB[1] = ... + alfa[1,j]*xN[j] + ...
+*     xB[2] = ... + alfa[2,j]*xN[j] + ...
+*              . . . . . .
+*     xB[m] = ... + alfa[m,j]*xN[j] + ...
+*
+*  where alfa[i,j] are elements of the simplex table column, xB[i] are
+*  basic (auxiliary and structural) variables.
+*
+*  RETURNS
+*
+*  The routine returns number of non-zero elements in the simplex table
+*  column stored in the arrays ind and val.
+*
+*  BACKGROUND
+*
+*  As it was explained in comments to the routine glp_eval_tab_row (see
+*  above) the simplex table is the following matrix:
+*
+*     A^ = - inv(B) * N.                                             (1)
+*
+*  Therefore j-th column of the simplex table is:
+*
+*     A^ * e = - inv(B) * N * e = - inv(B) * N[j],                   (2)
+*
+*  where e is a unity vector with e[j] = 1, B is the basis matrix, N[j]
+*  is a column of the augmented constraint matrix A~, which corresponds
+*  to the given non-basic auxiliary or structural variable. */
+
+int glp_eval_tab_col(glp_prob *lp, int k, int ind[], double val[])
+{     int m = lp->m;
+      int n = lp->n;
+      int t, len, stat;
+      double *col;
+      if (!(m == 0 || lp->valid))
+         xfault("glp_eval_tab_col: basis factorization does not exist\n"
+            );
+      if (!(1 <= k && k <= m+n))
+         xfault("glp_eval_tab_col: k = %d; variable number out of range"
+            , k);
+      if (k <= m)
+         stat = glp_get_row_stat(lp, k);
+      else
+         stat = glp_get_col_stat(lp, k-m);
+      if (stat == GLP_BS)
+         xfault("glp_eval_tab_col: k = %d; variable must be non-basic",
+            k);
+      /* obtain column N[k] with negative sign */
+      col = xcalloc(1+m, sizeof(double));
+      for (t = 1; t <= m; t++) col[t] = 0.0;
+      if (k <= m)
+      {  /* x[k] is auxiliary variable, so N[k] is a unity column */
+         col[k] = -1.0;
+      }
+      else
+      {  /* x[k] is structural variable, so N[k] is a column of the
+            original constraint matrix A with negative sign */
+         len = glp_get_mat_col(lp, k-m, ind, val);
+         for (t = 1; t <= len; t++) col[ind[t]] = val[t];
+      }
+      /* compute column of the simplex table, which corresponds to the
+         specified non-basic variable x[k] */
+      glp_ftran(lp, col);
+      len = 0;
+      for (t = 1; t <= m; t++)
+      {  if (col[t] != 0.0)
+         {  len++;
+            ind[len] = glp_get_bhead(lp, t);
+            val[len] = col[t];
+         }
+      }
+      xfree(col);
+      /* return to the calling program */
+      return len;
+}
+
 /* eof */

@@ -424,6 +424,16 @@ void lpx_get_col_info(glp_prob *lp, int j, int *tagx, double *vx,
       return;
 }
 
+int lpx_eval_tab_row(LPX *lp, int k, int ind[], double val[])
+{     /* compute row of the simplex tableau */
+      return glp_eval_tab_row(lp, k, ind, val);
+}
+
+int lpx_eval_tab_col(LPX *lp, int k, int ind[], double val[])
+{     /* compute column of the simplex tableau */
+      return glp_eval_tab_col(lp, k, ind, val);
+}
+
 int lpx_ipt_status(glp_prob *lp)
 {     /* retrieve status of interior-point solution */
       int status;
@@ -526,6 +536,10 @@ int lpx_integer(LPX *lp)
          parm.tm_lim = INT_MAX;
       else
          parm.tm_lim = 1000.0 * lpx_get_real_parm(lp, LPX_K_TMLIM);
+      if (lpx_get_int_parm(lp, LPX_K_USECUTS) & LPX_C_GOMORY)
+         parm.gmi_cuts = GLP_ON;
+      else
+         parm.gmi_cuts = GLP_OFF;
       if (lpx_get_int_parm(lp, LPX_K_USECUTS) & LPX_C_MIR)
          parm.mir_cuts = GLP_ON;
       else

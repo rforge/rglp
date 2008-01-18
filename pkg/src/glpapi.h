@@ -26,7 +26,6 @@
 
 #include "glpavl.h"
 #include "glpbfd.h"
-#include "glpscs.h"
 
 #define _GLP_PROB
 #define _GLP_BFCP
@@ -43,17 +42,19 @@ struct glp_prob
       /* memory pool to store problem object components */
       void *cps; /* struct LPXCPS *cps; */
       /* reserved for downward compatibility */
+#if 0
       char *str_buf; /* char str_buf[255+1]; */
       /* working buffer to store null-terminated character strings */
+#endif
       void *tree; /* glp_tree *tree */
       /* pointer to the branch-and-bound tree; set by the MIP solver
          when this object is used in the tree as a core MIP object */
       /*--------------------------------------------------------------*/
       /* LP/MIP data */
-      SCS *name;
+      char *name;
       /* problem name (1 to 255 chars); NULL means no name is assigned
          to the problem */
-      SCS *obj;
+      char *obj;
       /* objective function name (1 to 255 chars); NULL means no name
          is assigned to the objective function */
       int dir;
@@ -141,7 +142,7 @@ struct GLPROW
 {     /* LP/MIP row (auxiliary variable) */
       int i;
       /* ordinal number (1 to m) assigned to this row */
-      SCS *name;
+      char *name;
       /* row name (1 to 255 chars); NULL means no name is assigned to
          this row */
       AVLNODE *node;
@@ -193,7 +194,7 @@ struct GLPCOL
 {     /* LP/MIP column (structural variable) */
       int j;
       /* ordinal number (1 to n) assigned to this column */
-      SCS *name;
+      char *name;
       /* column name (1 to 255 chars); NULL means no name is assigned
          to this column */
       AVLNODE *node;

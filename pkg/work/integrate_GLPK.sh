@@ -2,9 +2,11 @@
 ## Integrates the latest GLPK package
 ## theussl, 2007-11-21
 
+## latest glpk tarball (Austrian mirror out of date)
+#URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
+URL="ftp://ftp.gnu.org/gnu/glpk/"
+latest="glpk-4.25.tar.gz"
 ## where to put source files and headers
-URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
-latest="glpk-4.24.tar.gz"
 DESTINATION=../src
 
 ## --------------------------------------------

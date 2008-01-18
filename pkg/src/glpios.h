@@ -150,19 +150,18 @@ struct glp_tree
       int *pred_stat; /* int pred_stat[1+pred_m+n]; */
       /* statuses of all variables */
       /*--------------------------------------------------------------*/
-      /* cut generator */
-#if 0
-      void *cut_gen;
-      /* pointer to working area used by the cut generator */
-#else
+      /* cut generator (under construction) */
       int first_attempt;
       int max_added_cuts;
       double min_eff;
       int miss;
       int just_selected;
-#endif
       void *mir_gen;
       /* pointer to working area used by the MIR cut generator */
+      int round;
+      /* round number; shows how many times the cut generating routine
+         is called for the same subproblem; 1 means call for the first
+         time */
       /*--------------------------------------------------------------*/
       /* conflict graph for the current subproblem, or, if it does not
          exists, for the root subproblem */
@@ -320,7 +319,7 @@ struct IOSTAT
 
 struct IOSROW
 {     /* row (cut) addition entry */
-      SCS *name;
+      char *name;
       /* row name or NULL */
       int type;
       /* row type */
@@ -510,6 +509,10 @@ void ios_delete_vec(IOSVEC *v);
 /* delete sparse vector */
 
 /**********************************************************************/
+
+#define ios_gmi_gen _glp_ios_gmi_gen
+void ios_gmi_gen(glp_tree *tree, IOSPOOL *pool);
+/* generate Gomory's mixed integer cuts */
 
 #define ios_mir_init _glp_ios_mir_init
 void *ios_mir_init(glp_tree *tree);

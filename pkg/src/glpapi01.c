@@ -59,7 +59,9 @@ glp_prob *glp_create_prob(void)
       lp->pool = dmp_create_pool();
       lp->cps = xmalloc(sizeof(struct LPXCPS));
       lpx_reset_parms(lp);
+#if 0
       lp->str_buf = xmalloc(255+1);
+#endif
       lp->tree = NULL;
       /* LP/MIP data */
       lp->name = NULL;
@@ -110,17 +112,15 @@ glp_prob *glp_create_prob(void)
 *  existing symbolic name of the problem object. */
 
 void glp_set_prob_name(glp_prob *lp, const char *name)
-{     if (name == NULL || name[0] == '\0')
-      {  if (lp->name != NULL)
-         {  scs_drop(lp->pool, lp->name);
-            lp->name = NULL;
-         }
+{     if (lp->name != NULL)
+      {  dmp_free_atom(lp->pool, lp->name, strlen(lp->name)+1);
+         lp->name = NULL;
       }
-      else
+      if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
             xfault("glp_set_prob_name: problem name too long\n");
-         if (lp->name == NULL) lp->name = scs_new(lp->pool);
-         scs_set(lp->pool, lp->name, name);
+         lp->name = dmp_get_atom(lp->pool, strlen(name)+1);
+         strcpy(lp->name, name);
       }
       return;
 }
@@ -144,17 +144,15 @@ void glp_set_prob_name(glp_prob *lp, const char *name)
 *  existing name of the objective function. */
 
 void glp_set_obj_name(glp_prob *lp, const char *name)
-{     if (name == NULL || name[0] == '\0')
-      {  if (lp->obj != NULL)
-         {  scs_drop(lp->pool, lp->obj);
-            lp->obj = NULL;
-         }
+{     if (lp->obj != NULL)
+      {  dmp_free_atom(lp->pool, lp->obj, strlen(lp->obj)+1);
+         lp->obj = NULL;
       }
-      else
+      if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
             xfault("glp_set_obj_name: objective name too long\n");
-         if (lp->obj == NULL) lp->obj = scs_new(lp->pool);
-         scs_set(lp->pool, lp->obj, name);
+         lp->obj = dmp_get_atom(lp->pool, strlen(name)+1);
+         strcpy(lp->obj, name);
       }
       return;
 }
@@ -355,27 +353,25 @@ void glp_set_row_name(glp_prob *lp, int i, const char *name)
          xfault("glp_set_row_name: i = %d; row number out of range\n",
             i);
       row = lp->row[i];
-      if (row->node != NULL)
-      {  xassert(lp->r_tree != NULL);
-         avl_delete_node(lp->r_tree, row->node);
-         row->node = NULL;
-      }
-      if (name == NULL || name[0] == '\0')
-      {  if (row->name != NULL)
-         {  scs_drop(lp->pool, row->name);
-            row->name = NULL;
+      if (row->name != NULL)
+      {  if (row->node != NULL)
+         {  xassert(lp->r_tree != NULL);
+            avl_delete_node(lp->r_tree, row->node);
+            row->node = NULL;
          }
+         dmp_free_atom(lp->pool, row->name, strlen(row->name)+1);
+         row->name = NULL;
       }
-      else
+      if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
             xfault("glp_set_row_name: i = %d; row name too long\n", i);
-         if (row->name == NULL) row->name = scs_new(lp->pool);
-         scs_set(lp->pool, row->name, name);
-      }
-      if (lp->r_tree != NULL && row->name != NULL)
-      {  xassert(row->node == NULL);
-         row->node = avl_insert_node(lp->r_tree, row->name);
-         avl_set_node_link(row->node, row);
+         row->name = dmp_get_atom(lp->pool, strlen(name)+1);
+         strcpy(row->name, name);
+         if (lp->r_tree != NULL)
+         {  xassert(row->node == NULL);
+            row->node = avl_insert_node(lp->r_tree, row->name);
+            avl_set_node_link(row->node, row);
+         }
       }
       return;
 }
@@ -404,28 +400,26 @@ void glp_set_col_name(glp_prob *lp, int j, const char *name)
          xfault("glp_set_col_name: j = %d; column number out of range\n"
             , j);
       col = lp->col[j];
-      if (col->node != NULL)
-      {  xassert(lp->c_tree != NULL);
-         avl_delete_node(lp->c_tree, col->node);
-         col->node = NULL;
-      }
-      if (name == NULL || name[0] == '\0')
-      {  if (col->name != NULL)
-         {  scs_drop(lp->pool, col->name);
-            col->name = NULL;
+      if (col->name != NULL)
+      {  if (col->node != NULL)
+         {  xassert(lp->c_tree != NULL);
+            avl_delete_node(lp->c_tree, col->node);
+            col->node = NULL;
          }
+         dmp_free_atom(lp->pool, col->name, strlen(col->name)+1);
+         col->name = NULL;
       }
-      else
+      if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
             xfault("glp_set_col_name: j = %d; column name too long\n",
                j);
-         if (col->name == NULL) col->name = scs_new(lp->pool);
-         scs_set(lp->pool, col->name, name);
-      }
-      if (lp->c_tree != NULL && col->name != NULL)
-      {  xassert(col->node == NULL);
-         col->node = avl_insert_node(lp->c_tree, col->name);
-         avl_set_node_link(col->node, col);
+         col->name = dmp_get_atom(lp->pool, strlen(name)+1);
+         strcpy(col->name, name);
+         if (lp->c_tree != NULL && col->name != NULL)
+         {  xassert(col->node == NULL);
+            col->node = avl_insert_node(lp->c_tree, col->name);
+            avl_set_node_link(col->node, col);
+         }
       }
       return;
 }
@@ -1143,7 +1137,9 @@ void glp_del_cols(glp_prob *lp, int ncs, const int num[])
 void glp_delete_prob(glp_prob *lp)
 {     dmp_delete_pool(lp->pool);
       xfree(lp->cps);
+#if 0
       xfree(lp->str_buf);
+#endif
       xassert(lp->tree == NULL);
       xfree(lp->row);
       xfree(lp->col);

@@ -40,10 +40,7 @@
 
 const char *glp_get_prob_name(glp_prob *lp)
 {     char *name;
-      if (lp->name == NULL)
-         name = NULL;
-      else
-         name = scs_get(lp->str_buf, lp->name);
+      name = lp->name;
       return name;
 }
 
@@ -65,10 +62,7 @@ const char *glp_get_prob_name(glp_prob *lp)
 
 const char *glp_get_obj_name(glp_prob *lp)
 {     char *name;
-      if (lp->obj == NULL)
-         name = NULL;
-      else
-         name = scs_get(lp->str_buf, lp->obj);
+      name = lp->obj;
       return name;
 }
 
@@ -152,10 +146,7 @@ const char *glp_get_row_name(glp_prob *lp, int i)
       if (!(1 <= i && i <= lp->m))
          xfault("glp_get_row_name: i = %d; row number out of range\n",
             i);
-      if (lp->row[i]->name == NULL)
-         name = NULL;
-      else
-         name = scs_get(lp->str_buf, lp->row[i]->name);
+      name = lp->row[i]->name;
       return name;
 }
 
@@ -179,10 +170,7 @@ const char *glp_get_col_name(glp_prob *lp, int j)
       if (!(1 <= j && j <= lp->n))
          xfault("glp_get_col_name: j = %d; column number out of range\n"
             , j);
-      if (lp->col[j]->name == NULL)
-         name = NULL;
-      else
-         name = scs_get(lp->str_buf, lp->col[j]->name);
+      name = lp->col[j]->name;
       return name;
 }
 

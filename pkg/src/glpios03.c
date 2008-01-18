@@ -107,6 +107,7 @@ static void show_progress(glp_tree *tree, int bingo)
 static void set_local_bound(glp_tree *tree)
 {     double bound;
       bound = tree->mip->obj_val;
+      if (fabs(bound) < 1e-8) bound = 0.0;
 #if 0
       if (tree->int_obj)
       {  /* the objective function is known to be integral */
@@ -1141,6 +1142,9 @@ loop: /* main loop starts here; at this point some subproblem has been
          just selected from the active list and made current */
       xassert(tree->curr != NULL);
       xassert(tree->solved == 0);
+#if 1
+      tree->round = 0;
+#endif
       /* determine the reference number of the current subproblem */
       p = tree->curr->p;
       if (tree->parm->msg_lev >= GLP_MSG_DBG)
@@ -1373,8 +1377,10 @@ more: /* minor loop starts here; at this point the current subproblem
             goto fath;
          }
       }
+      tree->round++;
 #if 1
-      if (tree->parm->mir_cuts == GLP_ON)
+      if (tree->parm->mir_cuts == GLP_ON ||
+          tree->parm->gmi_cuts == GLP_ON)
       {  xassert(tree->reason == 0);
          tree->reason = GLP_ICUTGEN;
          separation(tree);
@@ -1552,14 +1558,23 @@ done: /* display status of the search on exit from the solver */
 static double efficacy(glp_tree *tree, IOSCUT *cut)
 {     glp_prob *mip = tree->mip;
       IOSAIJ *aij;
-      double s = 0.0, t = 0.0;
+      double s = 0.0, t = 0.0, temp;
       for (aij = cut->ptr; aij != NULL; aij = aij->next)
       {  xassert(1 <= aij->j && aij->j <= mip->n);
          s += aij->val * mip->col[aij->j]->prim;
          t += aij->val * aij->val;
       }
-      xassert(cut->type == GLP_UP);
-      return (s <= cut->rhs ? 0.0 : (s - cut->rhs) / sqrt(t));
+      switch (cut->type)
+      {  case GLP_LO:
+            temp = (s >= cut->rhs ? 0.0 : (cut->rhs - s) / sqrt(t));
+            break;
+         case GLP_UP:
+            temp = (s <= cut->rhs ? 0.0 : (s - cut->rhs) / sqrt(t));
+            break;
+         default:
+            xassert(cut != cut);
+      }
+      return temp;
 }
 
 static double parallel(IOSCUT *a, IOSCUT *b, double work[])
@@ -1614,9 +1629,6 @@ static sort_pool(glp_tree *tree, IOSPOOL *pool)
 static void separation(glp_tree *tree)
 {     /* separation strategy */
       IOSPOOL *pool = NULL;
-      if (tree->curr->level == 0 && tree->mir_gen == NULL)
-            tree->mir_gen = ios_mir_init(tree);
-      xassert(tree->mir_gen != NULL);
       if (first_attempt)
          max_added_cuts = tree->mip->n;
       if (tree->curr->level > 0 && !just_selected) goto done;
@@ -1624,7 +1636,19 @@ static void separation(glp_tree *tree)
       if (tree->mip->m - tree->orig_m >= max_added_cuts) goto done;
       /* add to POOL all the cuts violated by x* */
       pool = ios_create_pool(tree);
-      ios_mir_gen(tree, tree->mir_gen, pool);
+      if (tree->parm->gmi_cuts == GLP_ON)
+      {  if (tree->curr->level == 0 && tree->round == 1 &&
+             tree->parm->msg_lev >= GLP_MSG_ALL)
+            xprintf("Gomory's cuts enabled\n");
+         if (tree->round <= 6)
+            ios_gmi_gen(tree, pool);
+      }
+      if (tree->parm->mir_cuts == GLP_ON)
+      {  if (tree->curr->level == 0 && tree->mir_gen == NULL)
+            tree->mir_gen = ios_mir_init(tree);
+         xassert(tree->mir_gen != NULL);
+         ios_mir_gen(tree, tree->mir_gen, pool);
+      }
       if (pool->size == 0) goto done;
       /* sort POOL by decreasing efficacy; the first cut is the cut
          with largest efficacy */
@@ -1664,7 +1688,9 @@ static void separation(glp_tree *tree)
                for (aij = cut->ptr; aij != NULL; aij = aij->next)
                   len++, ind[len] = aij->j, val[len] = aij->val;
                glp_set_mat_row(tree->mip, i, len, ind, val);
-               glp_set_row_bnds(tree->mip, i, GLP_UP, 0.0, cut->rhs);
+               xassert(cut->type == GLP_LO || cut->type == GLP_UP);
+               glp_set_row_bnds(tree->mip, i, cut->type, cut->rhs,
+                  cut->rhs);
             }
             else
             {  /* cut rejected */

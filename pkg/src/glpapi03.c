@@ -42,18 +42,13 @@
 *  This routine can be called at any time. If the name index already
 *  exists, the routine does nothing. */
 
-static int fcmp(void *info, const void *key1, const void *key2)
-{     xassert(info == NULL);
-      return scs_cmp(key1, key2);
-}
-
 void glp_create_index(glp_prob *lp)
 {     GLPROW *row;
       GLPCOL *col;
       int i, j;
       /* create row name index */
       if (lp->r_tree == NULL)
-      {  lp->r_tree = avl_create_tree(fcmp, NULL);
+      {  lp->r_tree = avl_create_tree(avl_strcmp, NULL);
          for (i = 1; i <= lp->m; i++)
          {  row = lp->row[i];
             xassert(row->node == NULL);
@@ -65,7 +60,7 @@ void glp_create_index(glp_prob *lp)
       }
       /* create column name index */
       if (lp->c_tree == NULL)
-      {  lp->c_tree = avl_create_tree(fcmp, NULL);
+      {  lp->c_tree = avl_create_tree(avl_strcmp, NULL);
          for (j = 1; j <= lp->n; j++)
          {  col = lp->col[j];
             xassert(col->node == NULL);
@@ -95,15 +90,11 @@ void glp_create_index(glp_prob *lp)
 
 int glp_find_row(glp_prob *lp, const char *name)
 {     AVLNODE *node;
-      SCS *key;
       int i = 0;
       if (lp->r_tree == NULL)
          xfault("glp_find_row: row name index does not exist\n");
       if (!(name == NULL || name[0] == '\0' || strlen(name) > 255))
-      {  key = scs_new(lp->pool);
-         scs_set(lp->pool, key, name);
-         node = avl_find_node(lp->r_tree, key);
-         scs_drop(lp->pool, key);
+      {  node = avl_find_node(lp->r_tree, name);
          if (node != NULL)
             i = ((GLPROW *)avl_get_node_link(node))->i;
       }
@@ -127,15 +118,11 @@ int glp_find_row(glp_prob *lp, const char *name)
 
 int glp_find_col(glp_prob *lp, const char *name)
 {     AVLNODE *node;
-      SCS *key;
       int j = 0;
       if (lp->c_tree == NULL)
          xfault("glp_find_col: column name index does not exist\n");
       if (!(name == NULL || name[0] == '\0' || strlen(name) > 255))
-      {  key = scs_new(lp->pool);
-         scs_set(lp->pool, key, name);
-         node = avl_find_node(lp->c_tree, key);
-         scs_drop(lp->pool, key);
+      {  node = avl_find_node(lp->c_tree, name);
          if (node != NULL)
             j = ((GLPCOL *)avl_get_node_link(node))->j;
       }

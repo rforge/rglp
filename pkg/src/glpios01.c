@@ -108,16 +108,13 @@ glp_tree *ios_create_tree(glp_prob *mip, const glp_iocp *parm)
       tree->pred_lb = tree->pred_ub = NULL;
       tree->pred_stat = NULL;
       /* cut generator */
-#if 0
-      tree->cut_gen = NULL;
-#else
       tree->first_attempt = 1;
       tree->max_added_cuts = 0;
       tree->min_eff = 0.0;
       tree->miss = 0;
       tree->just_selected = 0;
-#endif
       tree->mir_gen = NULL;
+      tree->round = 0;
       /* create the conflict graph */
       tree->n_ref = xcalloc(1+n, sizeof(int));
       memset(&tree->n_ref[1], 0, n * sizeof(int));
@@ -260,11 +257,7 @@ void ios_revive_node(glp_tree *tree, int p)
             val = xcalloc(1+n, sizeof(double));
             for (r = node->r_ptr; r != NULL; r = r->next)
             {  i = glp_add_rows(mip, 1);
-               if (r->name != NULL)
-               {  char *name = mip->str_buf;
-                  scs_get(name, r->name);
-                  glp_set_row_name(mip, i, name);
-               }
+               glp_set_row_name(mip, i, r->name);
                glp_set_row_bnds(mip, i, r->type, r->lb, r->ub);
                len = 0;
                for (a = r->ptr; a != NULL; a = a->next)
@@ -433,8 +426,8 @@ void ios_freeze_node(glp_tree *tree)
                if (name == NULL)
                   r->name = NULL;
                else
-               {  r->name = scs_new(tree->pool);
-                  scs_set(tree->pool, r->name, name);
+               {  r->name = dmp_get_atom(tree->pool, strlen(name)+1);
+                  strcpy(r->name, name);
                }
                r->type = row->type;
                r->lb = row->lb;
@@ -689,7 +682,7 @@ loop: /* recursive deletion starts here */
       {  IOSROW *r;
          r = node->r_ptr;
          if (r->name != NULL)
-            scs_drop(tree->pool, r->name);
+            dmp_free_atom(tree->pool, r->name, strlen(r->name)+1);
          while (r->ptr != NULL)
          {  IOSAIJ *a;
             a = r->ptr;

@@ -30,7 +30,7 @@ extern "C" {
 
 /* library version numbers: */
 #define GLP_MAJOR_VERSION  4
-#define GLP_MINOR_VERSION  23
+#define GLP_MINOR_VERSION  25
 
 #ifndef _GLP_PROB
 #define _GLP_PROB
@@ -168,7 +168,8 @@ typedef struct
 #define GLP_PP_ALL      2  /* preprocessing on all levels */
       double mip_gap;      /* relative MIP gap tolerance */
       int mir_cuts;        /* MIR cuts (GLP_ON/GLP_OFF) */
-      double foo_bar[35];  /* (reserved) */
+      int gmi_cuts;        /* Gomory's cuts (GLP_ON/GLP_OFF) */
+      double foo_bar[34];  /* (reserved) */
 #if 1 /* not yet available */
       char *fn_sol;        /* file name to write solution found */
 #endif
@@ -473,6 +474,12 @@ void glp_ftran(glp_prob *lp, double x[]);
 
 void glp_btran(glp_prob *lp, double x[]);
 /* perform backward transformation (solve system B'*x = b) */
+
+int glp_eval_tab_row(glp_prob *lp, int k, int ind[], double val[]);
+/* compute row of the simplex tableau */
+
+int glp_eval_tab_col(glp_prob *lp, int k, int ind[], double val[]);
+/* compute column of the simplex tableau */
 
 int glp_ios_reason(glp_tree *tree);
 /* determine reason for calling the callback routine */
