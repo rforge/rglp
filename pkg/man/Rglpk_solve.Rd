@@ -31,7 +31,7 @@ Rglpk_solve_LP(obj, mat, dir, rhs, int, max = FALSE,
 \details{
   The GNU Linear Programming Kit is open source. The current version can
   be found at
-  http://www.gnu.org/software/glpk/glpk.html. This package aims to
+  \url{http://www.gnu.org/software/glpk/glpk.html}. This package aims to
   provide a high level function to the low level C interface of the
   solver. There also exists an R interface done by Lopaka Lee which
   ports all low level C Interface routines of the GLPK API to R (R
