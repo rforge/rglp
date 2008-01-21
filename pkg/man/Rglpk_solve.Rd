@@ -59,8 +59,12 @@ Rglpk_solve_LP(obj, mat, dir, rhs, int, max = FALSE,
   \pkg{Rsymphony}.
 }
 \examples{
-## simple linear program (Ex. 17 of Hanke/Nettekoven 2003: "Linear 
-## Programming")
+## simple linear program
+## maximize:   2 x_1 + 4 x_2 + 3 x_3
+## subject to: 3 x_1 + 4 x_2 + 2 x_3 <= 60
+##             2 x_1 +   x_2 +   x_3 <= 40
+##               x_1 + 3 x_2 + 2 x_3 <= 80
+##               x_1, x_2, x_3 are positive real numbers
 
 obj <- c(2, 4, 3)
 mat <- matrix(c(3, 2, 1, 4, 1, 3, 2, 2, 2), nrow = 3)
@@ -70,8 +74,13 @@ max <- TRUE
 
 Rglpk_solve_LP(obj, mat, dir, rhs, max = max)
 
-## simple mixed integer program (Ex. 54 of Hanke/Nettekoven 2003: 
-## "Linear Programming")
+## simple mixed integer program
+## maximize:   3 x_1 + 1 x_2 + 3 x_3
+## subject to:-1 x_1 + 2 x_2 +   x_3 <= 4
+##                     4 x_2 - 3 x_3 <= 2
+##               x_1 - 3 x_2 + 2 x_3 <= 3
+##               x_1, x_3 are positive integers
+##               x_2 is a positive real number
 
 obj <- c(3, 1, 3)
 mat <- matrix(c(-1, 0, 1, 2, 4, -3, 1, -3, 2), nrow = 3)
@@ -81,5 +90,15 @@ int <- c(1, 3)
 max <- TRUE
 
 Rglpk_solve_LP(obj, mat, dir, rhs, int, max)
+
+## same as before but with additional bounds
+## -Inf <  x_1 <= 4
+##    0 <= x_2 <= 100
+##    2 <= x_3 <  Inf
+
+bounds  <- list(lower = list(ind = c(1L, 3L), val = c(-Inf, 2)), upper = list(ind = c(1L, 2L), val = c(4, 100)))
+Rglpk_solve_LP(obj, mat, dir, rhs, int, max, bounds)
+
 }
+
 \keyword{optimize}

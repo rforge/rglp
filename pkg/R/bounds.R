@@ -66,8 +66,9 @@ function(x, n)
 glp_bounds_check_sanity <-
 function(x, n)
 {
-  if(!is.integer(x[[1L]]))
-    stop("Bound indices have to be of type integer.")
+  if(!is.numeric(x[[1L]]))
+    warning("Bound indices not numeric. Coercing to integers ...")
+  x[[1L]] <- as.integer(x[[1L]])
   if(length(x[[1L]]) != length(x[[2L]]))
     stop("Length of bound indices must be equal to the length of the corresponding bound values.")
   if(any(duplicated(x[[1L]])))
