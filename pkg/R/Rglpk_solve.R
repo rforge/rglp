@@ -1,17 +1,18 @@
 ## the R-ported GNU Linear Programming kit
 ## solve function --- C Interface
 
-Rglpk_solve_LP <- function(obj, mat, dir, rhs, int = NULL, max = FALSE,
-                           bounds = NULL, verbose = FALSE){
-  
+Rglpk_solve_LP <-
+function(obj, mat, dir, rhs, int = NULL, max = FALSE,
+         bounds = NULL, verbose = FALSE)
+{
   ## validate direction of optimization
-  if((!is.logical(max)) || (length(max) > 1))
-    stop("'max' can be either TRUE or FALSE")
+  if(!identical(max, TRUE) && !identical(max, FALSE))
+    stop("'Argument 'max' must be either TRUE or FALSE.")
   direction_of_optimization <- as.integer(max)
 
   ## validate verbosity flag
-  if((!is.logical(verbose)) || (length(max) > 1))
-    stop("'verbose' can be either TRUE or FALSE")
+  if(!identical(verbose, TRUE) && !identical(verbose, FALSE))
+    stop("'Argument 'verbose' must be either TRUE or FALSE.")
   verb <- as.integer(verbose)
  
   ## match direction of constraints
@@ -19,7 +20,7 @@ Rglpk_solve_LP <- function(obj, mat, dir, rhs, int = NULL, max = FALSE,
   ## match relational operators to requested input
   direction_of_constraints <- match(dir, c("<", "<=", ">", ">=", "=="))
   if(any(is.na(direction_of_constraints)))
-    stop("'dir' must be either '<', '<=', '>', '>=' or '=='!")
+    stop("Argument 'dir' must be either '<', '<=', '>', '>=' or '=='.")
   
   n_of_objective_vars <- length(obj)
 
@@ -31,8 +32,7 @@ Rglpk_solve_LP <- function(obj, mat, dir, rhs, int = NULL, max = FALSE,
   is_integer <- any(integers)
 
   ## bounds of objective coefficients
-  bounds <- as.list(bounds)
-  bounds <- glp_bounds(bounds, n_of_objective_vars)
+  bounds <- glp_bounds(as.list(bounds), n_of_objective_vars)
 
   ## call the C interface - this actually runs the solver
   x <- glp_call_interface(obj, n_of_objective_vars, constraint_matrix$i,
@@ -50,13 +50,15 @@ Rglpk_solve_LP <- function(obj, mat, dir, rhs, int = NULL, max = FALSE,
 }
 
 ## this function calls the C interface
-glp_call_interface <- function(lp_objective_coefficients, lp_n_of_objective_vars,
-                               lp_constraint_matrix_i, lp_constraint_matrix_j, lp_constraint_matrix_v,
-                               lp_n_of_values_in_constraint_matrix, lp_right_hand_side,
-                               lp_direction_of_constraints, lp_n_of_constraints, lp_is_integer,
-                               lp_objective_var_is_integer, lp_direction_of_optimization,
-                               lp_bounds_type, lp_bounds_lower, lp_bounds_upper,
-                               verbose){
+glp_call_interface <-
+function(lp_objective_coefficients, lp_n_of_objective_vars,
+         lp_constraint_matrix_i, lp_constraint_matrix_j, lp_constraint_matrix_v,
+         lp_n_of_values_in_constraint_matrix, lp_right_hand_side,
+         lp_direction_of_constraints, lp_n_of_constraints, lp_is_integer,
+         lp_objective_var_is_integer, lp_direction_of_optimization,
+         lp_bounds_type, lp_bounds_lower, lp_bounds_upper,
+         verbose)
+{
   out <- .C("R_glp_solve",
             lp_direction_of_optimization= as.integer(lp_direction_of_optimization),
             lp_n_of_constraints         = as.integer(lp_n_of_constraints),
