@@ -1,3 +1,6 @@
 useDynLib("Rglpk")
 
 export("Rglpk_solve_LP")
+export("Rglpk_read_MPS")
+export("print.MILP")
+
