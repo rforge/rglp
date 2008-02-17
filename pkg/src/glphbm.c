@@ -3,7 +3,7 @@
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
-*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07 Andrew Makhorin,
+*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
 *  Moscow, Russia. All rights reserved. E-mail: <mao@mai2.rcnet.ru>.
 *
@@ -25,34 +25,36 @@
 #include "glplib.h"
 #define print xprint1
 
-/*----------------------------------------------------------------------
--- hbm_read_mat - read sparse matrix in Harwell-Boeing format.
---
--- *Synopsis*
---
--- #include "glphbm.h"
--- HBM *hbm_read_mat(char *fname);
---
--- *Description*
---
--- The routine hbm_read_mat reads a sparse matrix in the Harwell-Boeing
--- format from a text file whose name is the character string fname.
---
--- Detailed description of the Harwell-Boeing format recognised by this
--- routine is given in the following report:
---
--- I.S.Duff, R.G.Grimes, J.G.Lewis. User's Guide for the Harwell-Boeing
--- Sparse Matrix Collection (Release I), TR/PA/92/86, October 1992.
---
--- *Returns*
---
--- If no error occured, the routine hbm_read_mat returns a pointer to
--- a data structure containing the matrix. In case of error the routine
--- prints an appropriate error message and returns NULL. */
+/***********************************************************************
+*  NAME
+*
+*  hbm_read_mat - read sparse matrix in Harwell-Boeing format
+*
+*  SYNOPSIS
+*
+*  #include "glphbm.h"
+*  HBM *hbm_read_mat(const char *fname);
+*
+*  DESCRIPTION
+*
+*  The routine hbm_read_mat reads a sparse matrix in the Harwell-Boeing
+*  format from a text file whose name is the character string fname.
+*
+*  Detailed description of the Harwell-Boeing format recognised by this
+*  routine is given in the following report:
+*
+*  I.S.Duff, R.G.Grimes, J.G.Lewis. User's Guide for the Harwell-Boeing
+*  Sparse Matrix Collection (Release I), TR/PA/92/86, October 1992.
+*
+*  RETURNS
+*
+*  If no error occured, the routine hbm_read_mat returns a pointer to
+*  a data structure containing the matrix. In case of error the routine
+*  prints an appropriate error message and returns NULL. */
 
 struct dsa
 {     /* working area used by routine hbm_read_mat */
-      char *fname;
+      const char *fname;
       /* name of input text file */
       FILE *fp;
       /* stream assigned to input text file */
@@ -72,12 +74,12 @@ struct dsa
       /* number of decimal places after point */
 };
 
-/*----------------------------------------------------------------------
--- read_card - read next data card.
---
--- This routine reads the next 80-column card from the input text file
--- and stores its image into the character string card. If the card was
--- read successfully, the routine returns zero, otherwise non-zero. */
+/***********************************************************************
+*  read_card - read next data card
+*
+*  This routine reads the next 80-column card from the input text file
+*  and stores its image into the character string card. If the card was
+*  read successfully, the routine returns zero, otherwise non-zero. */
 
 static int read_card(struct dsa *dsa)
 {     int k, c;
@@ -114,14 +116,14 @@ static int read_card(struct dsa *dsa)
       return 0;
 }
 
-/*----------------------------------------------------------------------
--- scan_int - scan integer value from the current card.
---
--- This routine scans an integer value from the current card, where fld
--- is the name of the field, pos is the position of the field, width is
--- the width of the field, val points to a location to which the scanned
--- value should be stored. If the value was scanned successfully, the
--- routine returns zero, otherwise non-zero. */
+/***********************************************************************
+*  scan_int - scan integer value from the current card
+*
+*  This routine scans an integer value from the current card, where fld
+*  is the name of the field, pos is the position of the field, width is
+*  the width of the field, val points to a location to which the scanned
+*  value should be stored. If the value was scanned successfully, the
+*  routine returns zero, otherwise non-zero. */
 
 static int scan_int(struct dsa *dsa, char *fld, int pos, int width,
       int *val)
@@ -136,14 +138,14 @@ static int scan_int(struct dsa *dsa, char *fld, int pos, int width,
       return 0;
 }
 
-/*----------------------------------------------------------------------
--- parse_fmt - parse Fortran format specification.
---
--- This routine parses the Fortran format specification represented as
--- character string which fmt points to and stores format elements into
--- appropriate static locations. Should note that not all valid Fortran
--- format specifications may be recognised. If the format specification
--- was recognised, the routine returns zero, otherwise non-zero. */
+/***********************************************************************
+*  parse_fmt - parse Fortran format specification
+*
+*  This routine parses the Fortran format specification represented as
+*  character string which fmt points to and stores format elements into
+*  appropriate static locations. Should note that not all valid Fortran
+*  format specifications may be recognised. If the format specification
+*  was recognised, the routine returns zero, otherwise non-zero. */
 
 static int parse_fmt(struct dsa *dsa, char *fmt)
 {     int k, s, val;
@@ -217,14 +219,14 @@ iter:    dsa->fmt_k = val;
       return 0;
 }
 
-/*----------------------------------------------------------------------
--- read_int_array - read array of integer type.
---
--- This routine reads an integer array from the input text file, where
--- name is array name, fmt is Fortran format specification that controls
--- reading, n is number of array elements, val is array of integer type.
--- If the array was read successful, the routine returns zero, otherwise
--- non-zero. */
+/***********************************************************************
+*  read_int_array - read array of integer type
+*
+*  This routine reads an integer array from the input text file, where
+*  name is array name, fmt is Fortran format specification that controls
+*  reading, n is number of array elements, val is array of integer type.
+*  If the array was read successful, the routine returns zero, otherwise
+*  non-zero. */
 
 static int read_int_array(struct dsa *dsa, char *name, char *fmt,
       int n, int val[])
@@ -254,14 +256,14 @@ static int read_int_array(struct dsa *dsa, char *name, char *fmt,
       return 0;
 }
 
-/*----------------------------------------------------------------------
--- read_real_array - read array of real type.
---
--- This routine reads a real array from the input text file, where name
--- is array name, fmt is Fortran format specification that controls
--- reading, n is number of array elements, val is array of real type.
--- If the array was read successful, the routine returns zero, otherwise
--- non-zero. */
+/***********************************************************************
+*  read_real_array - read array of real type
+*
+*  This routine reads a real array from the input text file, where name
+*  is array name, fmt is Fortran format specification that controls
+*  reading, n is number of array elements, val is array of real type.
+*  If the array was read successful, the routine returns zero, otherwise
+*  non-zero. */
 
 static int read_real_array(struct dsa *dsa, char *name, char *fmt,
       int n, double val[])
@@ -311,7 +313,7 @@ static int read_real_array(struct dsa *dsa, char *name, char *fmt,
       return 0;
 }
 
-HBM *hbm_read_mat(char *fname)
+HBM *hbm_read_mat(const char *fname)
 {     struct dsa _dsa, *dsa = &_dsa;
       HBM *hbm = NULL;
       dsa->fname = fname;
@@ -476,18 +478,20 @@ fail: /* something wrong in Danish kingdom */
       return NULL;
 }
 
-/*----------------------------------------------------------------------
--- hbm_free_mat - free sparse matrix in Harwell-Boeing format.
---
--- *Synopsis*
---
--- #include "glphbm.h"
--- void hbm_free_mat(HBM *hbm);
---
--- *Description*
---
--- The hbm_free_mat routine frees all the memory allocated to the data
--- structure containing a sparse matrix in the Harwell-Boeing format. */
+/***********************************************************************
+*  NAME
+*
+*  hbm_free_mat - free sparse matrix in Harwell-Boeing format
+*
+*  SYNOPSIS
+*
+*  #include "glphbm.h"
+*  void hbm_free_mat(HBM *hbm);
+*
+*  DESCRIPTION
+*
+*  The hbm_free_mat routine frees all the memory allocated to the data
+*  structure containing a sparse matrix in the Harwell-Boeing format. */
 
 void hbm_free_mat(HBM *hbm)
 {     if (hbm->colptr != NULL) xfree(hbm->colptr);

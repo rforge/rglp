@@ -14,10 +14,10 @@ function(x, n)
   out
 }
 
-print.MILP <- function(x){
-  if(!inherits(x,"MILP"))
-     stop("'x' must be of class 'MILP'")
+print.MPS_data<- function(x, ...){
+  if(!inherits(x,"MPS_data"))
+     stop("'x' must be of class 'MPS_data'")
   writeLines(paste("A mixed integer linear program with", x$n_objective_vars, "objective variables,"))
-  ## writeLines(paste(x$n_integer_vars, "of which are integer and ", x$n_binary_vars, "are binary varibles."))
+  writeLines(paste(x$n_integer_vars, "of which are integer and ", x$n_binary_vars, "are binary variables."))
   writeLines(paste("This problem has", x$n_constraints, "constrains"))
 }

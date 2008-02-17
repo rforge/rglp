@@ -1,4 +1,4 @@
-/* glpstd.h (standard C headers) */
+/* glprgr.h (raster graphics) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
@@ -21,19 +21,12 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
-#ifndef _GLPSTD_H
-#define _GLPSTD_H
+#ifndef _GLPRGR_H
+#define _GLPRGR_H
 
-#include <ctype.h>
-#include <errno.h>
-#include <float.h>
-#include <limits.h>
-#include <math.h>
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#define rgr_write_bmp16 _glp_rgr_write_bmp16
+int rgr_write_bmp16(const char *fname, int m, int n, const char map[]);
+/* write 16-color raster image in BMP file format */
 
 #endif
 

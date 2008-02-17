@@ -3,7 +3,7 @@
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
-*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07 Andrew Makhorin,
+*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
 *  Moscow, Russia. All rights reserved. E-mail: <mao@mai2.rcnet.ru>.
 *
@@ -30,7 +30,7 @@ extern "C" {
 
 /* library version numbers: */
 #define GLP_MAJOR_VERSION  4
-#define GLP_MINOR_VERSION  25
+#define GLP_MINOR_VERSION  26
 
 #ifndef _GLP_PROB
 #define _GLP_PROB

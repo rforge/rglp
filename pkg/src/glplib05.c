@@ -3,7 +3,7 @@
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
-*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07 Andrew Makhorin,
+*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
 *  Moscow, Russia. All rights reserved. E-mail: <mao@mai2.rcnet.ru>.
 *
@@ -186,6 +186,8 @@ void xfault(const char *fmt, ...)
       va_start(arg, fmt);
       xvprintf(fmt, arg);
       va_end(arg);
+      fflush(stdout);
+      fflush(stderr);
       abort();
       /* no return */
 }
@@ -196,6 +198,8 @@ void xfault1(const char *fmt, ...)
       va_start(arg, fmt);
       xvprintf(fmt, arg), xputs("\n");
       va_end(arg);
+      fflush(stdout);
+      fflush(stderr);
       abort();
       /* no return */
 }

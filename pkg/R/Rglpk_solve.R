@@ -24,7 +24,7 @@ function(obj, mat, dir, rhs, int = NULL, max = FALSE,
   
   n_of_objective_vars <- length(obj)
 
-  constraint_matrix <- glp_matrix(mat)
+  constraint_matrix <- as.glp_matrix(mat)
 
   ## need a TRUE/FALSE integer representation
   integers <- glp_integers(int, n_of_objective_vars)

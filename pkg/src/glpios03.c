@@ -3,7 +3,7 @@
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
-*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07 Andrew Makhorin,
+*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
 *  Moscow, Russia. All rights reserved. E-mail: <mao@mai2.rcnet.ru>.
 *
@@ -1564,12 +1564,14 @@ static double efficacy(glp_tree *tree, IOSCUT *cut)
          s += aij->val * mip->col[aij->j]->prim;
          t += aij->val * aij->val;
       }
+      temp = sqrt(t);
+      if (temp < DBL_EPSILON) temp = DBL_EPSILON;
       switch (cut->type)
       {  case GLP_LO:
-            temp = (s >= cut->rhs ? 0.0 : (cut->rhs - s) / sqrt(t));
+            temp = (s >= cut->rhs ? 0.0 : (cut->rhs - s) / temp);
             break;
          case GLP_UP:
-            temp = (s <= cut->rhs ? 0.0 : (s - cut->rhs) / sqrt(t));
+            temp = (s <= cut->rhs ? 0.0 : (s - cut->rhs) / temp);
             break;
          default:
             xassert(cut != cut);
@@ -1579,7 +1581,7 @@ static double efficacy(glp_tree *tree, IOSCUT *cut)
 
 static double parallel(IOSCUT *a, IOSCUT *b, double work[])
 {     IOSAIJ *aij;
-      double s = 0.0, sa = 0.0, sb = 0.0;
+      double s = 0.0, sa = 0.0, sb = 0.0, temp;
       for (aij = a->ptr; aij != NULL; aij = aij->next)
       {  work[aij->j] = aij->val;
          sa += aij->val * aij->val;
@@ -1590,7 +1592,9 @@ static double parallel(IOSCUT *a, IOSCUT *b, double work[])
       }
       for (aij = a->ptr; aij != NULL; aij = aij->next)
          work[aij->j] = 0.0;
-      return s / sqrt(sa * sb);
+      temp = sqrt(sa * sb);
+      if (temp < DBL_EPSILON) temp = DBL_EPSILON;
+      return s / temp;
 }
 
 struct cut { IOSCUT *cut; double eff; };
@@ -1602,7 +1606,7 @@ static int fcmp(const void *x1, const void *x2)
       return 0;
 }
 
-static sort_pool(glp_tree *tree, IOSPOOL *pool)
+static void sort_pool(glp_tree *tree, IOSPOOL *pool)
 {     /* sort pool by decreasing efficacy */
       struct cut *cuts = xcalloc(1+pool->size, sizeof(struct cut));
       IOSCUT *cut;
@@ -1647,7 +1651,11 @@ static void separation(glp_tree *tree)
       {  if (tree->curr->level == 0 && tree->mir_gen == NULL)
             tree->mir_gen = ios_mir_init(tree);
          xassert(tree->mir_gen != NULL);
+#ifndef _GLP_FOOBAR
          ios_mir_gen(tree, tree->mir_gen, pool);
+#else
+         ios_cov_gen(tree, pool);
+#endif
       }
       if (pool->size == 0) goto done;
       /* sort POOL by decreasing efficacy; the first cut is the cut

@@ -3,7 +3,7 @@
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
 *
-*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07 Andrew Makhorin,
+*  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
 *  Moscow, Russia. All rights reserved. E-mail: <mao@mai2.rcnet.ru>.
 *
@@ -80,6 +80,9 @@ void alloc_content(MPL *mpl)
                stmt->u.con->array = create_array(mpl, A_ELEMCON,
                   stmt->u.con->dim);
                break;
+#if 1 /* 11/II-2008 */
+            case A_TABLE:
+#endif
             case A_SOLVE:
             case A_CHECK:
             case A_DISPLAY:
@@ -559,6 +562,9 @@ MPL *mpl_initialize(void)
       mpl->rand = rng_create_rand();
       mpl->flag_p = 0;
       mpl->stmt = NULL;
+#if 1 /* 11/II-2008 */
+      mpl->dca = NULL;
+#endif
       mpl->m = 0;
       mpl->n = 0;
       mpl->row = NULL;
@@ -1348,14 +1354,20 @@ void mpl_terminate(MPL *mpl)
             /* there were no errors; clean the model content */
             clean_model(mpl);
             xassert(mpl->a_list == NULL);
+#if 1 /* 11/II-2008 */
+            xassert(mpl->dca == NULL);
+#endif
             break;
          case 4:
-            /* model processing has been finihed due to error; delete
+            /* model processing has been finished due to error; delete
                search trees, which may be created for some arrays */
             {  ARRAY *a;
                for (a = mpl->a_list; a != NULL; a = a->next)
                   if (a->tree != NULL) avl_delete_tree(a->tree);
             }
+#if 1 /* 11/II-2008 */
+            free_dca(mpl);
+#endif
             break;
          default:
             xassert(mpl != mpl);
