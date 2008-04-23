@@ -21,9 +21,10 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
+#define _GLPSTD_STDIO
 #include "glplib.h"
 #include "glpmpl.h"
-#define print xprint1
 
 /**********************************************************************/
 /* * *                   FLOATING-POINT NUMBERS                   * * */
@@ -403,6 +404,7 @@ STRING *create_string
 (     MPL *mpl,
       char buf[MAX_LENGTH+1]  /* not changed */
 )
+#if 0
 {     STRING *head, *tail;
       int i, j;
       xassert(buf != NULL);
@@ -416,6 +418,14 @@ tail = (tail->next = dmp_get_atom(mpl->strings, sizeof(STRING))), j = 0;
       tail->next = NULL;
       return head;
 }
+#else
+{     STRING *str;
+      xassert(strlen(buf) <= MAX_LENGTH);
+      str = dmp_get_atom(mpl->strings, strlen(buf)+1);
+      strcpy(str, buf);
+      return str;
+}
+#endif
 
 /*----------------------------------------------------------------------
 -- copy_string - make copy of character string.
@@ -426,6 +436,7 @@ STRING *copy_string
 (     MPL *mpl,
       STRING *str             /* not changed */
 )
+#if 0
 {     STRING *head, *tail;
       xassert(str != NULL);
       head = tail = dmp_get_atom(mpl->strings, sizeof(STRING));
@@ -437,6 +448,11 @@ tail = (tail->next = dmp_get_atom(mpl->strings, sizeof(STRING)));
       tail->next = NULL;
       return head;
 }
+#else
+{     xassert(mpl == mpl);
+      return create_string(mpl, str);
+}
+#endif
 
 /*----------------------------------------------------------------------
 -- compare_strings - compare one character string with another.
@@ -453,6 +469,7 @@ int compare_strings
       STRING *str1,           /* not changed */
       STRING *str2            /* not changed */
 )
+#if 0
 {     int j, c1, c2;
       xassert(mpl == mpl);
       for (;; str1 = str1->next, str2 = str2->next)
@@ -468,6 +485,11 @@ int compare_strings
       }
 done: return 0;
 }
+#else
+{     xassert(mpl == mpl);
+      return strcmp(str1, str2);
+}
+#endif
 
 /*----------------------------------------------------------------------
 -- fetch_string - extract content of character string.
@@ -480,6 +502,7 @@ char *fetch_string
       STRING *str,            /* not changed */
       char buf[MAX_LENGTH+1]  /* modified */
 )
+#if 0
 {     int i, j;
       xassert(mpl == mpl);
       xassert(buf != NULL);
@@ -491,6 +514,11 @@ char *fetch_string
 done: xassert(strlen(buf) <= MAX_LENGTH);
       return buf;
 }
+#else
+{     xassert(mpl == mpl);
+      return strcpy(buf, str);
+}
+#endif
 
 /*----------------------------------------------------------------------
 -- delete_string - delete character string.
@@ -501,6 +529,7 @@ void delete_string
 (     MPL *mpl,
       STRING *str             /* destroyed */
 )
+#if 0
 {     STRING *temp;
       xassert(str != NULL);
       while (str != NULL)
@@ -510,6 +539,11 @@ void delete_string
       }
       return;
 }
+#else
+{     dmp_free_atom(mpl->strings, str, strlen(str)+1);
+      return;
+}
+#endif
 
 /**********************************************************************/
 /* * *                          SYMBOLS                           * * */
@@ -4843,7 +4877,10 @@ read_table:
          if (mpl_tab_drv_read(mpl)) break;
          /* all fields must be set by the driver */
          for (k = 1; k <= dca->nf; k++)
-            xassert(dca->type[k] != '?');
+         {  if (dca->type[k] == '?')
+               error(mpl, "field %s missing in input table",
+                  dca->name[k]);
+         }
          /* construct n-tuple */
          tup = create_tuple(mpl);
          k = 0;
@@ -5541,7 +5578,7 @@ void execute_printf(MPL *mpl, PRINTF *prt)
 {     if (prt->fname == NULL)
       {  /* switch to the standard output */
          if (mpl->prt_fp != NULL)
-         {  xfclose(mpl->prt_fp), mpl->prt_fp = NULL;
+         {  fclose(mpl->prt_fp), mpl->prt_fp = NULL;
             xfree(mpl->prt_file), mpl->prt_file = NULL;
          }
       }
@@ -5558,12 +5595,12 @@ void execute_printf(MPL *mpl, PRINTF *prt)
          /* close the current print file, if necessary */
          if (mpl->prt_fp != NULL &&
             (!prt->app || strcmp(mpl->prt_file, fname) != 0))
-         {  xfclose(mpl->prt_fp), mpl->prt_fp = NULL;
+         {  fclose(mpl->prt_fp), mpl->prt_fp = NULL;
             xfree(mpl->prt_file), mpl->prt_file = NULL;
          }
          /* open the specified print file, if necessary */
          if (mpl->prt_fp == NULL)
-         {  mpl->prt_fp = xfopen(fname, prt->app ? "a" : "w");
+         {  mpl->prt_fp = fopen(fname, prt->app ? "a" : "w");
             if (mpl->prt_fp == NULL)
                error(mpl, "unable to open `%s' for writing - %s",
                   fname, strerror(errno));
@@ -5656,17 +5693,17 @@ void execute_statement(MPL *mpl, STATEMENT *stmt)
          case A_VARIABLE:
             break;
          case A_CONSTRAINT:
-            print("Generating %s...", stmt->u.con->name);
+            xprintf("Generating %s...\n", stmt->u.con->name);
             eval_whole_con(mpl, stmt->u.con);
             break;
 #if 1 /* 11/II-2008 */
          case A_TABLE:
             switch (stmt->u.tab->type)
             {  case A_INPUT:
-                  print("Reading %s...", stmt->u.tab->name);
+                  xprintf("Reading %s...\n", stmt->u.tab->name);
                   break;
                case A_OUTPUT:
-                  print("Writing %s...", stmt->u.tab->name);
+                  xprintf("Writing %s...\n", stmt->u.tab->name);
                   break;
                default:
                   xassert(stmt != stmt);

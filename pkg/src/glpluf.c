@@ -23,6 +23,7 @@
 
 #include "glplib.h"
 #include "glpluf.h"
+#define xfault xerror
 
 /* CAUTION: DO NOT CHANGE THE LIMIT BELOW */
 

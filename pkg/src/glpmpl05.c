@@ -21,12 +21,17 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
+#define _GLPSTD_STDIO
 #include "glpmpl.h"
+#include "glpsql.h"
+
+/**********************************************************************/
 
 #define CSV_FIELD_MAX 50
 /* maximal number of fields in record */
 
-#define CSV_FDLEN_MAX 255
+#define CSV_FDLEN_MAX 100
 /* maximal field length */
 
 struct csv
@@ -215,7 +220,7 @@ static struct csv *csv_open_file(TABDCA *dca, int mode)
       if (mode == 'R')
       {  /* open the file for reading */
          int k;
-         csv->fp = xfopen(csv->fname, "r");
+         csv->fp = fopen(csv->fname, "r");
          if (csv->fp == NULL)
          {  xprintf("csv_driver: unable to open %s - %s\n",
                csv->fname, strerror(errno));
@@ -256,7 +261,7 @@ static struct csv *csv_open_file(TABDCA *dca, int mode)
       else if (mode == 'W')
       {  /* open the file for writing */
          int k, nf;
-         csv->fp = xfopen(csv->fname, "w");
+         csv->fp = fopen(csv->fname, "w");
          if (csv->fp == NULL)
          {  xprintf("csv_driver: unable to create %s - %s\n",
                csv->fname, strerror(errno));
@@ -275,7 +280,7 @@ static struct csv *csv_open_file(TABDCA *dca, int mode)
       return csv;
 fail: /* the file cannot be open */
       if (csv->fname != NULL) xfree(csv->fname);
-      if (csv->fp != NULL) xfclose(csv->fp);
+      if (csv->fp != NULL) fclose(csv->fp);
       xfree(csv);
       return NULL;
 }
@@ -386,15 +391,482 @@ static int csv_close_file(TABDCA *dca, struct csv *csv)
          }
       }
       xfree(csv->fname);
-      xfclose(csv->fp);
+      fclose(csv->fp);
       xfree(csv);
       return ret;
 }
 
-/*====================================================================*/
+/**********************************************************************/
+
+#define DBF_FIELD_MAX 50
+/* maximal number of fields in record */
+
+#define DBF_FDLEN_MAX 100
+/* maximal field length */
+
+struct dbf
+{     /* xBASE data file */
+      int mode;
+      /* 'R' = reading; 'W' = writing */
+      char *fname;
+      /* name of xBASE file */
+      FILE *fp;
+      /* stream assigned to xBASE file */
+      jmp_buf jump;
+      /* address for non-local go to in case of error */
+      int offset;
+      /* offset of a byte to be read next */
+      int count;
+      /* record count */
+      int nf;
+      /* number of fields */
+      int ref[1+DBF_FIELD_MAX];
+      /* ref[k] = k', if k-th field of the csv file corresponds to
+         k'-th field in the table statement; if ref[k] = 0, k-th field
+         of the csv file is ignored */
+      int type[1+DBF_FIELD_MAX];
+      /* type[k] is type of k-th field */
+      int len[1+DBF_FIELD_MAX];
+      /* len[k] is length of k-th field */
+      int prec[1+DBF_FIELD_MAX];
+      /* prec[k] is precision of k-th field */
+};
+
+static int read_byte(struct dbf *dbf)
+{     /* read byte from xBASE data file */
+      int b;
+      b = fgetc(dbf->fp);
+      if (ferror(dbf->fp))
+      {  xprintf("%s:0x%X: read error - %s\n", dbf->fname,
+            dbf->offset, strerror(errno));
+         longjmp(dbf->jump, 0);
+      }
+      if (feof(dbf->fp))
+      {  xprintf("%s:0x%X: unexpected end of file\n", dbf->fname,
+            dbf->offset);
+         longjmp(dbf->jump, 0);
+      }
+      xassert(0x00 <= b && b <= 0xFF);
+      dbf->offset++;
+      return b;
+}
+
+static void read_header(TABDCA *dca, struct dbf *dbf)
+{     /* read xBASE data file header */
+      int b, j, k, recl;
+      char name[10+1];
+      /* (ignored) */
+      for (j = 1; j <= 10; j++)
+         read_byte(dbf);
+      /* length of each record, in bytes */
+      recl = read_byte(dbf);
+      recl += read_byte(dbf) << 8;
+      /* (ignored) */
+      for (j = 1; j <= 20; j++)
+         read_byte(dbf);
+      /* field descriptor array */
+      xassert(dbf->nf == 0);
+      for (;;)
+      {  /* check for end of array */
+         b = read_byte(dbf);
+         if (b == 0x0D) break;
+         if (dbf->nf == DBF_FIELD_MAX)
+         {  xprintf("%s:0x%X: too many fields\n", dbf->fname,
+               dbf->offset);
+            longjmp(dbf->jump, 0);
+         }
+         dbf->nf++;
+         /* field name */
+         name[0] = (char)b;
+         for (j = 1; j < 10; j++)
+         {  b = read_byte(dbf);
+            name[j] = (char)b;
+         }
+         name[10] = '\0';
+         b = read_byte(dbf);
+         if (b != 0x00)
+         {  xprintf("%s:0x%X: invalid field name\n", dbf->fname,
+               dbf->offset);
+            longjmp(dbf->jump, 0);
+         }
+         /* find corresponding field in the table statement */
+         for (k = mpl_tab_num_flds(dca); k >= 1; k--)
+            if (strcmp(mpl_tab_get_name(dca, k), name) == 0) break;
+         dbf->ref[dbf->nf] = k;
+         /* field type */
+         b = read_byte(dbf);
+         if (!(b == 'C' || b == 'N'))
+         {  xprintf("%s:0x%X: invalid field type\n", dbf->fname,
+               dbf->offset);
+            longjmp(dbf->jump, 0);
+         }
+         dbf->type[dbf->nf] = b;
+         /* (ignored) */
+         for (j = 1; j <= 4; j++)
+            read_byte(dbf);
+         /* field length */
+         b = read_byte(dbf);
+         if (b == 0)
+         {  xprintf("%s:0x%X: invalid field length\n", dbf->fname,
+               dbf->offset);
+            longjmp(dbf->jump, 0);
+         }
+         if (b > DBF_FDLEN_MAX)
+         {  xprintf("%s:0x%X: field too long\n", dbf->fname,
+               dbf->offset);
+            longjmp(dbf->jump, 0);
+         }
+         dbf->len[dbf->nf] = b;
+         recl -= b;
+         /* (ignored) */
+         for (j = 1; j <= 15; j++)
+            read_byte(dbf);
+      }
+      if (recl != 1)
+      {  xprintf("%s:0x%X: invalid file header\n", dbf->fname,
+            dbf->offset);
+         longjmp(dbf->jump, 0);
+      }
+      /* find dummy RECNO field in the table statement */
+      for (k = mpl_tab_num_flds(dca); k >= 1; k--)
+         if (strcmp(mpl_tab_get_name(dca, k), "RECNO") == 0) break;
+      dbf->ref[0] = k;
+      return;
+}
+
+static void parse_third_arg(TABDCA *dca, struct dbf *dbf)
+{     /* parse xBASE file format (third argument) */
+      int j, k, temp;
+      const char *arg;
+      dbf->nf = mpl_tab_num_flds(dca);
+      arg = mpl_tab_get_arg(dca, 3), j = 0;
+      for (k = 1; k <= dbf->nf; k++)
+      {  /* parse specification of k-th field */
+         if (arg[j] == '\0')
+         {  xprintf("xBASE driver: field %s: specification missing\n",
+               mpl_tab_get_name(dca, k));
+            longjmp(dbf->jump, 0);
+         }
+         /* parse field type */
+         if (arg[j] == 'C' || arg[j] == 'N')
+            dbf->type[k] = arg[j], j++;
+         else
+         {  xprintf("xBASE driver: field %s: invalid field type\n",
+               mpl_tab_get_name(dca, k));
+            longjmp(dbf->jump, 0);
+         }
+         /* check for left parenthesis */
+         if (arg[j] == '(')
+            j++;
+         else
+err:     {  xprintf("xBASE driver: field %s: invalid field format\n",
+               mpl_tab_get_name(dca, k));
+            longjmp(dbf->jump, 0);
+         }
+         /* parse field length */
+         temp = 0;
+         while (isdigit(arg[j]))
+         {  if (temp > DBF_FDLEN_MAX) break;
+            temp = 10 * temp + (arg[j] - '0'), j++;
+         }
+         if (!(1 <= temp && temp <= DBF_FDLEN_MAX))
+         {  xprintf("xBASE driver: field %s: invalid field length\n",
+               mpl_tab_get_name(dca, k));
+            longjmp(dbf->jump, 0);
+         }
+         dbf->len[k] = temp;
+         /* parse optional field precision */
+         if (dbf->type[k] == 'N' && arg[j] == ',')
+         {  j++;
+            temp = 0;
+            while (isdigit(arg[j]))
+            {  if (temp > dbf->len[k]) break;
+               temp = 10 * temp + (arg[j] - '0'), j++;
+            }
+            if (temp > dbf->len[k])
+            {  xprintf("xBASE driver: field %s: invalid field precision"
+                  "\n", mpl_tab_get_name(dca, k));
+               longjmp(dbf->jump, 0);
+            }
+            dbf->prec[k] = temp;
+         }
+         else
+            dbf->prec[k] = 0;
+         /* check for right parenthesis */
+         if (arg[j] == ')')
+            j++;
+         else
+            goto err;
+      }
+      /* ignore other specifications */
+      return;
+}
+
+static void write_byte(struct dbf *dbf, int b)
+{     /* write byte to xBASE data file */
+      fputc(b, dbf->fp);
+      dbf->offset++;
+      return;
+}
+
+static void write_header(TABDCA *dca, struct dbf *dbf)
+{     /* write xBASE data file header */
+      int j, k, temp;
+      const char *name;
+      /* version number */
+      write_byte(dbf, 0x03 /* file without DBT */);
+      /* date of last update (YYMMDD) */
+      write_byte(dbf, 70 /* 1970 */);
+      write_byte(dbf, 1 /* January */);
+      write_byte(dbf, 1 /* 1st */);
+      /* number of records (unknown so far) */
+      for (j = 1; j <= 4; j++)
+         write_byte(dbf, 0xFF);
+      /* length of the header, in bytes */
+      temp = 32 + dbf->nf * 32 + 1;
+      write_byte(dbf, temp);
+      write_byte(dbf, temp >> 8);
+      /* length of each record, in bytes */
+      temp = 1;
+      for (k = 1; k <= dbf->nf; k++)
+         temp += dbf->len[k];
+      write_byte(dbf, temp);
+      write_byte(dbf, temp >> 8);
+      /* (reserved) */
+      for (j = 1; j <= 20; j++)
+         write_byte(dbf, 0x00);
+      /* field descriptor array */
+      for (k = 1; k <= dbf->nf; k++)
+      {  /* field name (terminated by 0x00) */
+         name = mpl_tab_get_name(dca, k);
+         for (j = 0; j < 10 && name[j] != '\0'; j++)
+            write_byte(dbf, name[j]);
+         for (j = j; j < 11; j++)
+            write_byte(dbf, 0x00);
+         /* field type */
+         write_byte(dbf, dbf->type[k]);
+         /* (reserved) */
+         for (j = 1; j <= 4; j++)
+            write_byte(dbf, 0x00);
+         /* field length */
+         write_byte(dbf, dbf->len[k]);
+         /* field precision */
+         write_byte(dbf, dbf->prec[k]);
+         /* (reserved) */
+         for (j = 1; j <= 14; j++)
+            write_byte(dbf, 0x00);
+      }
+      /* end of header */
+      write_byte(dbf, 0x0D);
+      return;
+}
+
+static struct dbf *dbf_open_file(TABDCA *dca, int mode)
+{     /* open xBASE data file */
+      struct dbf *dbf;
+      /* create control structure */
+      dbf = xmalloc(sizeof(struct dbf));
+      dbf->mode = mode;
+      dbf->fname = NULL;
+      dbf->fp = NULL;
+      if (setjmp(dbf->jump)) goto fail;
+      dbf->offset = 0;
+      dbf->count = 0;
+      dbf->nf = 0;
+      /* try to open the xBASE data file */
+      if (mpl_tab_num_args(dca) < 2)
+      {  xprintf("xBASE driver: file name not specified\n");
+         longjmp(dbf->jump, 0);
+      }
+      dbf->fname = xmalloc(strlen(mpl_tab_get_arg(dca, 2))+1);
+      strcpy(dbf->fname, mpl_tab_get_arg(dca, 2));
+      if (mode == 'R')
+      {  /* open the file for reading */
+         dbf->fp = fopen(dbf->fname, "rb");
+         if (dbf->fp == NULL)
+         {  xprintf("xBASE driver: unable to open %s - %s\n",
+               dbf->fname, strerror(errno));
+            longjmp(dbf->jump, 0);
+         }
+         read_header(dca, dbf);
+      }
+      else if (mode == 'W')
+      {  /* open the file for writing */
+         if (mpl_tab_num_args(dca) < 3)
+         {  xprintf("xBASE driver: file format not specified\n");
+            longjmp(dbf->jump, 0);
+         }
+         parse_third_arg(dca, dbf);
+         dbf->fp = fopen(dbf->fname, "wb");
+         if (dbf->fp == NULL)
+         {  xprintf("xBASE driver: unable to create %s - %s\n",
+               dbf->fname, strerror(errno));
+            longjmp(dbf->jump, 0);
+         }
+         write_header(dca, dbf);
+      }
+      else
+         xassert(mode != mode);
+      /* the file has been open */
+      return dbf;
+fail: /* the file cannot be open */
+      if (dbf->fname != NULL) xfree(dbf->fname);
+      if (dbf->fp != NULL) fclose(dbf->fp);
+      xfree(dbf);
+      return NULL;
+}
+
+static int dbf_read_record(TABDCA *dca, struct dbf *dbf)
+{     /* read next record from xBASE data file */
+      int b, j, k, ret = 0;
+      char buf[DBF_FDLEN_MAX+1];
+      xassert(dbf->mode == 'R');
+      if (setjmp(dbf->jump))
+      {  ret = 1;
+         goto done;
+      }
+      /* check record flag */
+      b = read_byte(dbf);
+      if (b == 0x1A)
+      {  /* end of data */
+         ret = -1;
+         goto done;
+      }
+      if (b != 0x20)
+      {  xprintf("%s:0x%X: invalid record flag\n", dbf->fname,
+            dbf->offset);
+         longjmp(dbf->jump, 0);
+      }
+      /* read dummy RECNO field */
+      if (dbf->ref[0] > 0)
+         mpl_tab_set_num(dca, dbf->ref[0], dbf->count+1);
+      /* read fields */
+      for (k = 1; k <= dbf->nf; k++)
+      {  /* read k-th field */
+         for (j = 0; j < dbf->len[k]; j++)
+            buf[j] = (char)read_byte(dbf);
+         buf[dbf->len[k]] = '\0';
+         /* set field value */
+         if (dbf->type[k] == 'C')
+         {  /* character field */
+            if (dbf->ref[k] > 0)
+               mpl_tab_set_str(dca, dbf->ref[k], strtrim(buf));
+         }
+         else if (dbf->type[k] == 'N')
+         {  /* numeric field */
+            if (dbf->ref[k] > 0)
+            {  double num;
+               strspx(buf);
+               xassert(str2num(buf, &num) == 0);
+               mpl_tab_set_num(dca, dbf->ref[k], num);
+            }
+         }
+         else
+            xassert(dbf != dbf);
+      }
+      /* increase record count */
+      dbf->count++;
+done: return ret;
+}
+
+static int dbf_write_record(TABDCA *dca, struct dbf *dbf)
+{     /* write next record to xBASE data file */
+      int j, k, ret = 0;
+      char buf[255+1];
+      xassert(dbf->mode == 'W');
+      if (setjmp(dbf->jump))
+      {  ret = 1;
+         goto done;
+      }
+      /* record flag */
+      write_byte(dbf, 0x20);
+      xassert(dbf->nf == mpl_tab_num_flds(dca));
+      for (k = 1; k <= dbf->nf; k++)
+      {  if (dbf->type[k] == 'C')
+         {  /* character field */
+            const char *str;
+            if (mpl_tab_get_type(dca, k) == 'N')
+            {  sprintf(buf, "%.*g", DBL_DIG, mpl_tab_get_num(dca, k));
+               str = buf;
+            }
+            else if (mpl_tab_get_type(dca, k) == 'S')
+               str = mpl_tab_get_str(dca, k);
+            else
+               xassert(dca != dca);
+            if ((int)strlen(str) > dbf->len[k])
+            {  xprintf("xBASE driver: field %s: cannot convert %.15s..."
+                  " to field format\n", mpl_tab_get_name(dca, k), str);
+               longjmp(dbf->jump, 0);
+            }
+            for (j = 0; j < dbf->len[k] && str[j] != '\0'; j++)
+                write_byte(dbf, str[j]);
+            for (j = j; j < dbf->len[k]; j++)
+                write_byte(dbf, ' ');
+         }
+         else if (dbf->type[k] == 'N')
+         {  /* numeric field */
+            double num = mpl_tab_get_num(dca, k);
+            if (fabs(num) > 1e20)
+err:        {  xprintf("xBASE driver: field %s: cannot convert %g to fi"
+                  "eld format\n", mpl_tab_get_name(dca, k), num);
+               longjmp(dbf->jump, 0);
+            }
+            sprintf(buf, "%*.*f", dbf->len[k], dbf->prec[k], num);
+            xassert(strlen(buf) < sizeof(buf));
+            if ((int)strlen(buf) != dbf->len[k]) goto err;
+            for (j = 0; j < dbf->len[k]; j++)
+               write_byte(dbf, buf[j]);
+         }
+         else
+            xassert(dbf != dbf);
+      }
+      /* increase record count */
+      dbf->count++;
+done: return ret;
+}
+
+static int dbf_close_file(TABDCA *dca, struct dbf *dbf)
+{     /* close xBASE data file */
+      int ret = 0;
+      xassert(dca == dca);
+      if (dbf->mode == 'W')
+      {  if (setjmp(dbf->jump))
+         {  ret = 1;
+            goto skip;
+         }
+         /* end-of-file flag */
+         write_byte(dbf, 0x1A);
+         /* number of records */
+         dbf->offset = 4;
+         if (fseek(dbf->fp, dbf->offset, SEEK_SET))
+         {  xprintf("%s:0x%X: seek error - %s\n", dbf->fname,
+               dbf->offset, strerror(errno));
+            longjmp(dbf->jump, 0);
+         }
+         write_byte(dbf, dbf->count);
+         write_byte(dbf, dbf->count >> 8);
+         write_byte(dbf, dbf->count >> 16);
+         write_byte(dbf, dbf->count >> 24);
+         fflush(dbf->fp);
+         if (ferror(dbf->fp))
+         {  xprintf("%s:0x%X: write error - %s\n", dbf->fname,
+               dbf->offset, strerror(errno));
+            longjmp(dbf->jump, 0);
+         }
+skip:    ;
+      }
+      xfree(dbf->fname);
+      fclose(dbf->fp);
+      xfree(dbf);
+      return ret;
+}
+
+/**********************************************************************/
 
 #define TAB_CSV   1
-#define TAB_ODBC  2
+#define TAB_XBASE 2
+#define TAB_IODBC 3
+#define TAB_MYSQL 4
 
 void mpl_tab_drv_open(MPL *mpl, int mode)
 {     TABDCA *dca = mpl->dca;
@@ -405,9 +877,17 @@ void mpl_tab_drv_open(MPL *mpl, int mode)
       {  dca->id = TAB_CSV;
          dca->link = csv_open_file(dca, mode);
       }
-      else if (strcmp(dca->arg[1], "ODBC") == 0)
-      {  dca->id = TAB_ODBC;
-         xprintf("ODBC table driver is not implemented\n");
+      else if (strcmp(dca->arg[1], "xBASE") == 0)
+      {  dca->id = TAB_XBASE;
+         dca->link = dbf_open_file(dca, mode);
+      }
+      else if (strcmp(dca->arg[1], "iODBC") == 0)
+      {  dca->id = TAB_IODBC;
+         dca->link = db_iodbc_open(dca, mode);
+      }
+      else if (strcmp(dca->arg[1], "MySQL") == 0)
+      {  dca->id = TAB_MYSQL;
+         dca->link = db_mysql_open(dca, mode);
       }
       else
          xprintf("Invalid table driver `%s'\n", dca->arg[1]);
@@ -424,7 +904,15 @@ int mpl_tab_drv_read(MPL *mpl)
       {  case TAB_CSV:
             ret = csv_read_record(dca, dca->link);
             break;
-         case TAB_ODBC:
+         case TAB_XBASE:
+            ret = dbf_read_record(dca, dca->link);
+            break;
+         case TAB_IODBC:
+            ret = db_iodbc_read(dca, dca->link);
+            break;
+         case TAB_MYSQL:
+            ret = db_mysql_read(dca, dca->link);
+            break;
          default:
             xassert(dca != dca);
       }
@@ -441,7 +929,15 @@ void mpl_tab_drv_write(MPL *mpl)
       {  case TAB_CSV:
             ret = csv_write_record(dca, dca->link);
             break;
-         case TAB_ODBC:
+         case TAB_XBASE:
+            ret = dbf_write_record(dca, dca->link);
+            break;
+         case TAB_IODBC:
+            ret = db_iodbc_write(dca, dca->link);
+            break;
+         case TAB_MYSQL:
+            ret = db_mysql_write(dca, dca->link);
+            break;
          default:
             xassert(dca != dca);
       }
@@ -458,7 +954,15 @@ void mpl_tab_drv_close(MPL *mpl)
       {  case TAB_CSV:
             ret = csv_close_file(dca, dca->link);
             break;
-         case TAB_ODBC:
+         case TAB_XBASE:
+            ret = dbf_close_file(dca, dca->link);
+            break;
+         case TAB_IODBC:
+            ret = db_iodbc_close(dca, dca->link);
+            break;
+         case TAB_MYSQL:
+            ret = db_mysql_close(dca, dca->link);
+            break;
          default:
             xassert(dca != dca);
       }

@@ -24,6 +24,7 @@
 #include "glpapi.h"
 #include "glplpp.h"
 #include "glpspx.h"
+#define xfault xerror
 
 /***********************************************************************
 *  NAME

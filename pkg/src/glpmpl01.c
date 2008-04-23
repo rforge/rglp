@@ -21,8 +21,8 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_STDIO
 #include "glpmpl.h"
-#define print xprint1
 #define dmp_get_atomv dmp_get_atom
 
 /**********************************************************************/
@@ -65,7 +65,7 @@ void print_context(MPL *mpl)
          memmove(mpl->context, mpl->context+1, CONTEXT_SIZE-1);
          mpl->context[CONTEXT_SIZE-1] = (char)c;
       }
-      print("Context: %s%.*s", mpl->context[0] == ' ' ? "" : "...",
+      xprintf("Context: %s%.*s\n", mpl->context[0] == ' ' ? "" : "...",
          CONTEXT_SIZE, mpl->context);
       return;
 }

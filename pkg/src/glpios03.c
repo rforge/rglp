@@ -21,6 +21,7 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_STDIO
 #include "glpios.h"
 
 /***********************************************************************
@@ -414,7 +415,6 @@ static void fix_by_red_cost(glp_tree *tree)
 /**********************************************************************/
 
 #define int_col(j) (lpx_get_col_kind(tree->mip, j) == LPX_IV)
-#define print xprint1
 
 /*----------------------------------------------------------------------
 -- branch_on - perform branching on specified column.
@@ -450,7 +450,8 @@ static void branch_on(glp_tree *tree, int j, int next)
       /* obtain primal value of j-th column in basic solution */
       beta = lpx_get_col_prim(lp, j);
       if (tree->parm->msg_lev >= GLP_MSG_DBG)
-         print("Branching on column %d, primal value is %.9e", j, beta);
+         xprintf("Branching on column %d, primal value is %.9e\n",
+            j, beta);
       /* determine the reference number of the current subproblem */
       xassert(tree->curr != NULL);
       p = tree->curr->p;
@@ -460,7 +461,8 @@ static void branch_on(glp_tree *tree, int j, int next)
          begins the down-branch, the second one begins the up-branch */
       ios_clone_node(tree, p, 2, clone);
       if (tree->parm->msg_lev >= GLP_MSG_DBG)
-         print("Node %d begins down branch, node %d begins up branch",
+         xprintf(
+            "Node %d begins down branch, node %d begins up branch\n",
             clone[1], clone[2]);
       /* set new upper bound of j-th column in the first subproblem */
       ios_revive_node(tree, clone[1]);
@@ -819,16 +821,16 @@ skip:       /* new Z is never better than old Z, therefore the change
       /* something must be chosen */
       xassert(1 <= jj && jj <= n);
       if (tree->parm->msg_lev >= GLP_MSG_DBG)
-      {  print("branch_drtom: column %d chosen to branch on", jj);
+      {  xprintf("branch_drtom: column %d chosen to branch on\n", jj);
          if (fabs(dd_dn) == DBL_MAX)
-            print("branch_drtom: down-branch is infeasible");
+            xprintf("branch_drtom: down-branch is infeasible\n");
          else
-            print("branch_drtom: down-branch bound is %.9e",
+            xprintf("branch_drtom: down-branch bound is %.9e\n",
                lpx_get_obj_val(lp) + dd_dn);
          if (fabs(dd_up) == DBL_MAX)
-            print("branch_drtom: up-branch   is infeasible");
+            xprintf("branch_drtom: up-branch   is infeasible\n");
          else
-            print("branch_drtom: up-branch   bound is %.9e",
+            xprintf("branch_drtom: up-branch   bound is %.9e\n",
                lpx_get_obj_val(lp) + dd_up);
       }
       /* perform branching */
@@ -898,9 +900,9 @@ static void cleanup_the_tree(glp_tree *tree)
       }
       if (tree->parm->msg_lev >= GLP_MSG_DBG)
       {  if (count == 1)
-            print("One hopeless branch has been pruned");
+            xprintf("One hopeless branch has been pruned\n");
          else if (count > 1)
-            print("%d hopeless branches have been pruned", count);
+            xprintf("%d hopeless branches have been pruned\n", count);
       }
       return;
 }
@@ -1060,7 +1062,7 @@ static void separation(glp_tree *tree);
 int ios_driver(glp_tree *tree)
 {     glp_prob *mip = tree->mip;
       int p, p_stat, d_stat, ret;
-      glp_ulong ttt = tree->tm_beg;
+      xlong_t ttt = tree->tm_beg;
       /* on entry to the B&B driver it is assumed that the active list
          contains the only active (i.e. root) subproblem, which is the
          original MIP problem to be solved */
@@ -1155,8 +1157,8 @@ loop: /* main loop starts here; at this point some subproblem has been
       }
       /* check if the time limit has been exhausted */
       if (tree->parm->tm_lim < INT_MAX &&
-         (double)(tree->parm->tm_lim - 1) <= 1000.0 * xdifftime(xtime(),
-            tree->tm_beg))
+         (double)(tree->parm->tm_lim - 1) <=
+         1000.0 * xdifftime(xtime(), tree->tm_beg))
       {  if (tree->parm->msg_lev >= GLP_MSG_DBG)
             xprintf("Time limit exhausted; search terminated\n");
          ret = GLP_ETMLIM;
@@ -1204,16 +1206,15 @@ more: /* minor loop starts here; at this point the current subproblem
       /* display current progress of the search */
       if (tree->parm->msg_lev >= GLP_MSG_DBG ||
           tree->parm->msg_lev >= GLP_MSG_ON &&
-        (double)(tree->parm->out_frq - 1) <= 1000.0 * xdifftime(xtime(),
-            tree->tm_lag))
+        (double)(tree->parm->out_frq - 1) <=
+            1000.0 * xdifftime(xtime(), tree->tm_lag))
          show_progress(tree, 0);
       if (tree->parm->msg_lev >= GLP_MSG_ALL &&
             xdifftime(xtime(), ttt) >= 60.0)
-      {  glp_ulong total;
+      {  xlong_t total;
          lib_mem_usage(NULL, NULL, &total, NULL);
          xprintf("Time used: %.1f secs.  Memory used: %.1f Mb.\n",
-            xdifftime(xtime(), tree->tm_beg),
-            (4294967296.0 * total.hi + total.lo) / 1048576.0);
+            xdifftime(xtime(), tree->tm_beg), xltod(total) / 1048576.0);
          ttt = xtime();
       }
       /* solve LP relaxation of the current subproblem */

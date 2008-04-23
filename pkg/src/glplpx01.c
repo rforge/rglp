@@ -23,6 +23,7 @@
 
 #include "glpapi.h"
 #include "glplib.h"
+#define xfault xerror
 
 LPX *lpx_create_prob(void)
 {     /* create problem object */

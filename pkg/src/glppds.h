@@ -32,7 +32,7 @@ struct PDS
 {     /* plain data stream */
       char *fname;
       /* name of input text file */
-      FILE *fp;
+      void *fp; /* FILE *fp; */
       /* stream assigned to input text file */
       void *jump; /* jmp_buf jump; */
       /* address for non-local go to on error */

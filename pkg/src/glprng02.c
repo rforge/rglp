@@ -23,6 +23,7 @@
 
 #include "glplib.h"
 #include "glprng.h"
+#define xfault xerror
 
 /***********************************************************************
 *  NAME

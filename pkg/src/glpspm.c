@@ -21,6 +21,8 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
+#define _GLPSTD_STDIO
 #include "glphbm.h"
 #include "glppds.h"
 #include "glprgr.h"
@@ -568,7 +570,7 @@ int spm_write_mat(const SPM *A, const char *fname)
 {     FILE *fp;
       int i, nnz, ret = 0;
       xprintf("spm_write_mat: writing matrix to `%s'...\n", fname);
-      fp = xfopen(fname, "w");
+      fp = fopen(fname, "w");
       if (fp == NULL)
       {  xprintf("spm_write_mat: unable to create `%s' - %s\n", fname,
             strerror(errno));
@@ -595,7 +597,7 @@ int spm_write_mat(const SPM *A, const char *fname)
          goto done;
       }
       xprintf("spm_write_mat: %d lines were written\n", 1 + nnz);
-done: if (fp != NULL) xfclose(fp);
+done: if (fp != NULL) fclose(fp);
       return ret;
 }
 

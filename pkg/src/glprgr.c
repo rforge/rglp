@@ -21,8 +21,11 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
+#define _GLPSTD_STDIO
 #include "glplib.h"
 #include "glprgr.h"
+#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -94,7 +97,7 @@ int rgr_write_bmp16(const char *fname, int m, int n, const char map[])
          xfault("rgr_write_bmp16: m = %d; invalid height\n", m);
       if (!(1 <= n && n <= 32767))
          xfault("rgr_write_bmp16: n = %d; invalid width\n", n);
-      fp = xfopen(fname, "wb");
+      fp = fopen(fname, "wb");
       if (fp == NULL)
       {  xprintf("rgr_write_bmp16: unable to create `%s' - %s\n",
             fname, strerror(errno));
@@ -154,7 +157,7 @@ int rgr_write_bmp16(const char *fname, int m, int n, const char map[])
             fname, strerror(errno));
          ret = 1;
       }
-fini: if (fp != NULL) xfclose(fp);
+fini: if (fp != NULL) fclose(fp);
       return ret;
 }
 

@@ -29,7 +29,11 @@
 #include "glprng.h"
 
 typedef struct MPL MPL;
+#if 0
 typedef struct STRING STRING;
+#else
+typedef char STRING;
+#endif
 typedef struct SYMBOL SYMBOL;
 typedef struct TUPLE TUPLE;
 typedef struct ARRAY ELEMSET;
@@ -1006,6 +1010,7 @@ double fp_normal01(MPL *mpl);
 double fp_normal(MPL *mpl, double mu, double sigma);
 /* Gaussian random variate with specified mu and sigma */
 
+#if 0
 /**********************************************************************/
 /* * *                SEGMENTED CHARACTER STRINGS                 * * */
 /**********************************************************************/
@@ -1023,6 +1028,11 @@ struct STRING
       STRING *next;
       /* the next segment of string */
 };
+#else
+/**********************************************************************/
+/* * *                     CHARACTER STRINGS                      * * */
+/**********************************************************************/
+#endif
 
 STRING *create_string
 (     MPL *mpl,

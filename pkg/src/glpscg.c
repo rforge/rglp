@@ -317,7 +317,7 @@ static int wclique(SCG *g, const int w[], int sol[])
       const *wt = &w[1];
       struct dsa _dsa, *dsa = &_dsa;
       int i, j, p, max_wt, max_nwt, wth, *used, *nwt, *pos;
-      glp_ulong timer;
+      xlong_t timer;
       xassert(n > 0);
       dsa->g = g;
       dsa->i = 0;

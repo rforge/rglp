@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpapi.h"
-#define print xprint1
 
 /*----------------------------------------------------------------------
 -- lpx_check_int - check integer feasibility conditions.

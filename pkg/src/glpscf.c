@@ -23,6 +23,7 @@
 
 #include "glplib.h"
 #include "glpscf.h"
+#define xfault xerror
 
 #define _GLPSCF_DEBUG 0
 

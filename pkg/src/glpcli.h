@@ -1,4 +1,4 @@
-/* glpstd.h (standard C headers) */
+/* glpcli.h (command-line interface) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
@@ -21,20 +21,32 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
-#ifndef _GLPSTD_H
-#define _GLPSTD_H
+#ifndef _GLPCLI_H
+#define _GLPCLI_H
 
-#include <ctype.h>
-#include <errno.h>
-#include <float.h>
-#include <limits.h>
-#include <math.h>
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include "glplib.h"
+
+#ifndef _GLP_CLI
+#define _GLP_CLI
+typedef struct { double _cli; } CLI;
+/* command-line interface object */
+#endif
+
+/* return codes: */
+#define CLI_EXIT     1
+#define CLI_ERROR    2
+
+#define cli_create_it _glp_cli_create_it
+CLI *cli_create_it(void);
+/* create GLPK command-line interface */
+
+#define cli_execute_cmd _glp_cli_execute_cmd
+int cli_execute_cmd(CLI *cli, int (*func)(void *info), void *info);
+/* execute GLPK command script (core routine) */
+
+#define cli_delete_it _glp_cli_delete_it
+void cli_delete_it(CLI *cli);
+/* delete GLPK command-line interface */
 
 #endif
 
