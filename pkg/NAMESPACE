@@ -1,5 +1,5 @@
 useDynLib("Rglpk")
 
 export("Rglpk_solve_LP")
-export("Rglpk_read_MPS")
-export("print.MPS_data")
+export("Rglpk_read_file")
+export("print.MP_data_from_file")
