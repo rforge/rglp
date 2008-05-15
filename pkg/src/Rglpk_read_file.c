@@ -39,9 +39,10 @@ void Rglpk_read_file (char **file, int *type, char **lp_problem_name,
     error("Reading file %c failed", *file);
   }
 
-  // retrieve name of problem
-  *lp_problem_name = glp_get_prob_name(lp);  
-
+  // retrieve name of problem (not for CPLEX_LP)
+  if ( ( *type == 1 ) || ( *type == 2 ) ) 
+    *lp_problem_name = glp_get_prob_name(lp);  
+  
   // retrieve optimization direction flag
   *lp_direction_of_optimization = glp_get_obj_dir(lp);  
 

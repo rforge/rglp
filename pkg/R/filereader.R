@@ -42,6 +42,11 @@ Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
   meta_data <- glp_get_meta_data_from_file(obj, verbose)
   milp_data <- glp_retrieve_MP_from_file(meta_data, verbose)
   out <- glp_merge_MP_data(meta_data, milp_data)
+  ## Post processing
+  out$type <- names(type_db[type_db==out$type])
+  class(out$bounds) <- c("bound_table", class(out$bounds))
+  dir_db <- c("<" = 1L, "<=" = 2L, ">" = 3L, ">=" = 4L, "==" = 5L)
+  out$direction_of_constraints <- names(dir_db[out$direction_of_constraints])
   class(out) <- "MP_data_from_file"
   out
 }
@@ -99,9 +104,10 @@ glp_merge_MP_data <- function(x, y){
                                                          y$constraint_matrix_values),
               direction_of_constraints      = y$direction_of_constraints,
               right_hand_side               = y$right_hand_side,
-              objective_var_is_integer      = y$objective_var_is_integer,
-              objective_var_is_binary       = y$objective_var_is_binary,
-              direction_of_optimization     = x$direction_of_optimization,
+              objective_var_is_integer      = as.logical(y$objective_var_is_integer),
+              objective_var_is_binary       = as.logical(y$objective_var_is_binary),
+              ## minimization if GLP_MIN (1L) or max if GLP_MAX (2L)
+              maximize                      = x$direction_of_optimization == 2L,
               bounds                        = data.frame(type  = y$bounds_type,
                                                          lower = y$bounds_lower,
                                                          upper = y$bounds_upper),

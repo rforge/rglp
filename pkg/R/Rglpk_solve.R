@@ -3,7 +3,7 @@
 
 Rglpk_solve_LP <-
 function(obj, mat, dir, rhs, int = NULL, max = FALSE,
-         bounds = NULL, verbose = FALSE)
+         bounds = list(), verbose = FALSE)
 {
   ## validate direction of optimization
   if(!identical(max, TRUE) && !identical(max, FALSE))
@@ -32,7 +32,7 @@ function(obj, mat, dir, rhs, int = NULL, max = FALSE,
   is_integer <- any(integers)
 
   ## bounds of objective coefficients
-  bounds <- glp_bounds(as.list(bounds), n_of_objective_vars)
+  bounds <- as.glp_bounds(bounds, n_of_objective_vars)
 
   ## call the C interface - this actually runs the solver
   x <- glp_call_interface(obj, n_of_objective_vars, constraint_matrix$i,

@@ -45,12 +45,15 @@ function(x)
   out
 }
 
+as.glp_matrix.glp_matrix <- function(x)
+  x
+
 ## FIXME: should this function reside in this package?
 ## simple triplet representaion -> index form
 as.glp_matrix.simple_triplet_matrix <-
 function(x)
 {
-  if(!inherits("simple_triplet_matrix"))
+  if(!inherits(x, "simple_triplet_matrix"))
     stop("'x' must be of class 'simple_triplet_matrix'")
   out <- list(i = x$i, j = x$j, v = x$v)
   class(out) <- "glp_matrix"
