@@ -31,6 +31,7 @@
 Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"), verbose = FALSE){
   if(!file.exists(file))
     stop(paste("There is no file called", file, "!"))
+  ## which file type to read from
   type <- match.arg(type)
   type_db <- c("MPS_fixed" = 1L,
                "MPS_free"  = 2L,
@@ -39,15 +40,46 @@ Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
   type <- type_db[type]
   obj <- list(file = tools::file_path_as_absolute(file),
               type = type)
+  ## read files in a two step approach 
+  ## first, retrieve meta data like number of objective variables etc.
+  ## we need this to reserve memory in R accordingly
   meta_data <- glp_get_meta_data_from_file(obj, verbose)
+  ## second, read all remaining data
   milp_data <- glp_retrieve_MP_from_file(meta_data, verbose)
-  out <- glp_merge_MP_data(meta_data, milp_data)
+  ## merge everything together
+  MP_data <- glp_merge_MP_data(meta_data, milp_data)
   ## Post processing
-  out$type <- names(type_db[type_db==out$type])
-  class(out$bounds) <- c("bound_table", class(out$bounds))
+  MP_data$type <- names(type_db[type_db == MP_data$type])
   dir_db <- c("<" = 1L, "<=" = 2L, ">" = 3L, ">=" = 4L, "==" = 5L)
-  out$direction_of_constraints <- names(dir_db[out$direction_of_constraints])
-  class(out) <- "MP_data_from_file"
+  MP_data$direction_of_constraints <- names(dir_db[MP_data$direction_of_constraints])
+  ## default is to have only continuous variables
+  ## if any is binary or integer set the value accordingly
+  types <- rep("C", length.out = MP_data$n_objective_vars)
+  if(any(MP_data$objective_var_is_integer)){
+    types[MP_data$objective_var_is_integer] <- "I"
+  }
+  if(any(MP_data$objective_var_is_binary)){
+    types[MP_data$objective_var_is_binary] <- "B"
+  }
+  ## build object we want to return
+  ## First add MILP to the object
+  out <- MILP(objective = MP_data$objective_coefficients,
+              constraints = list(MP_data$constraint_matrix,
+                                 MP_data$direction_of_constraints,
+                                 MP_data$right_hand_side),
+              types = types,
+              maximum = MP_data$maximize
+              )
+  out$bounds <- MP_data$bounds
+
+  out$n_objective_vars <- MP_data$n_objective_vars
+  out$n_integer_vars <- MP_data$n_integer_vars
+  out$n_binary_vars <- MP_data$n_binary_vars
+  out$n_constraints <- MP_data$n_constraints
+  out$n_values_in_constraint_matrix <- MP_data$n_values_in_constraint_matrix
+  out$file_type <- MP_data$type
+  out$file_name <- MP_data$file
+  class(out) <- c("MP_data_from_file", class(out))
   out
 }
 
@@ -94,6 +126,10 @@ glp_retrieve_MP_from_file <- function(x, verbose = FALSE){
             verbosity                = as.integer(verbose),
             PACKAGE = "Rglpk")
   ## lp_is_integer               = as.integer(lp_is_integer),
+
+  ## replace infinity values
+  res$bounds_lower <- replace(res$bounds_lower, res$bounds_lower == -.Machine$double.xmax, -Inf)
+  res$bounds_upper <- replace(res$bounds_upper, res$bounds_upper == .Machine$double.xmax, Inf)
   res
 }
                         
@@ -108,9 +144,10 @@ glp_merge_MP_data <- function(x, y){
               objective_var_is_binary       = as.logical(y$objective_var_is_binary),
               ## minimization if GLP_MIN (1L) or max if GLP_MAX (2L)
               maximize                      = x$direction_of_optimization == 2L,
-              bounds                        = data.frame(type  = y$bounds_type,
-                                                         lower = y$bounds_lower,
-                                                         upper = y$bounds_upper),
+              bounds                        = list(lower = list(ind = 1L:x$n_objective_vars,
+                                                                val = y$bounds_lower),
+                                                   upper = list(ind = 1L:x$n_objective_vars,
+                                                                val = y$bounds_upper)),
               n_objective_vars              = x$n_objective_vars,
               n_integer_vars                = x$n_integer_vars,
               n_binary_vars                 = x$n_binary_vars,
