@@ -1,44 +1,45 @@
-\name{Rglpk_read_MPS}
-\alias{Rglpk_read_MPS}
-\alias{print.MPS_data}
-\title{Interface to GLPK's MPS reader}
+\name{Rglpk_read_file}
+\alias{Rglpk_read_file}
+\alias{print.MP_data_from_file}
+\title{Interface to GLPK's file reader}
 \description{
-  High level R interface to the MPS reader of the GNU Linear Programming
-  Kit (GLPK).
+  High level R interface to the MPS and CPLEX reader of the GNU Linear
+  Programming Kit (GLPK).
 }
 \usage{
 ## MPS file reader
-Rglpk_read_MPS(file, type = "Standard", verbose = FALSE)
+Rglpk_read_file(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
+verbose = FALSE) 
 
 ## print method
-\method{print}{MPS_data}(x, \ldots)
+\method{print}{MP_data_from_file}(x, \ldots)
 }
 \arguments{
   \item{file}{a character specifying the relative or absolute path to
-    the MPS file.}
-  \item{type}{a character specifying the MPS file type. Currently
-    only the \code{"Standard"} file format is supported.}
+    the model file.}
+  \item{type}{a character specifying the file type. This can be either
+    \code{"MPS_fixed"}, \code{"MPS_free"} and \code{"CPLEX_LP"}.}
   \item{verbose}{a logical for turning on/off additional solver output:
     Default: \code{FALSE}.}
-  \item{x}{an object of class \code{"MPS_data"}.}
+  \item{x}{an object of class \code{"MP_data_from_file"}.}
   \item{\ldots}{further arguments passed on to the print method.}
 }
-\details{\code{Rglpk_read_MPS()} takes the path to an MPS file as an
-  argument and calls GLPK's MPS reader. The description of the linear or
+\details{\code{Rglpk_read_file()} takes the path to file as an
+  argument and calls GLPK's file reader. The description of the linear or
   mixed integer linear program is return as an object of class
-  \code{"MPS_data"}.
+  \code{"MP_data_from_file"}.
 }
 \value{
-  \code{Rglpk_read_MPS()} returns the specification of a mixed integer
-  linear program in \code{file} as an object of class
-  \code{"MPS_data"}.
+  \code{Rglpk_read_file()} returns the specification of a mixed integer
+  linear program defined in \code{file} as an object of class
+  \code{"MP_data_from_file"}.
 }
 %%\references{}
 \author{Stefan Theussl}
 %%\seealso{}
 \examples{
 ## not run:
-## dat <- Rglpk_read_MPS(some_file.MPS)
+## dat <- Rglpk_read_file(some_file.MPS)
 ## dat
 }
 \keyword{IO}

@@ -6,7 +6,7 @@
 #include <R.h>
 
 // read in all necessary elements for retrieving the LP/MILP
-void Rglpk_read_file (char **file, int *type, char **lp_problem_name,
+void Rglpk_read_file (char **file, int *type, /*char **lp_problem_name,*/
 		      int *lp_direction_of_optimization,
 		      int *lp_n_constraints, int *lp_n_objective_vars,
 		      int *lp_n_values_in_constraint_matrix,
@@ -40,9 +40,10 @@ void Rglpk_read_file (char **file, int *type, char **lp_problem_name,
   }
 
   // retrieve name of problem (not for CPLEX_LP)
-  if ( ( *type == 1 ) || ( *type == 2 ) ) 
+  /*if ( ( *type == 1 ) || ( *type == 2 ) ) 
     *lp_problem_name = glp_get_prob_name(lp);  
-  
+  */  
+
   // retrieve optimization direction flag
   *lp_direction_of_optimization = glp_get_obj_dir(lp);  
 

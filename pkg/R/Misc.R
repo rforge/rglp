@@ -4,15 +4,15 @@
 ## This function takes an index vector and returns a vector of logicals
 ## with length 'n'.
 
-glp_integers <-
-function(x, n)
-{
-  if(!all(x <= n))
-    stop("Indices must not exceed the number of objective coefficients.")
-  out <- logical(n)
-  out[x] <- TRUE
-  out
-}
+#glp_integers <-
+#function(x, n)
+#{
+#  if(!all(x <= n))
+#stop("Indices must not exceed the number of objective coefficients.")
+#  out <- logical(n)
+#  out[x] <- TRUE
+#  out
+#}
 
 print.MP_data_from_file <- function(x, ...){
   if(!inherits(x,"MP_data_from_file"))

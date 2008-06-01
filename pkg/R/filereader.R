@@ -89,7 +89,8 @@ glp_get_meta_data_from_file <- function(x, verbose = FALSE){
   res <- .C("Rglpk_read_file",
             file                          = as.character(x$file),
             type                          = as.integer(x$type),
-            problem_name                  = character(1L),
+            ## generates segfaults
+            ##problem_name                  = character(1L),
             ## objective_function_name       = character(1L),
             direction_of_optimization     = integer(1L),
             n_constraints                 = integer(1L),         
@@ -153,7 +154,7 @@ glp_merge_MP_data <- function(x, y){
               n_binary_vars                 = x$n_binary_vars,
               n_constraints                 = x$n_constraints,
               n_values_in_constraint_matrix = x$n_values_in_constraint_matrix,
-              problem_name                  = x$problem_name,
+              ## problem_name                  = x$problem_name,
               file                          = x$file,
               type                          = x$type
               )
