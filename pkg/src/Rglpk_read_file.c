@@ -128,14 +128,15 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
   // retrieve row specific data (right hand side, direction of constraints)
   for (i = 0; i < *lp_n_constraints; i++) {
     lp_direction_of_constraints[i] = glp_get_row_type(lp, i+1);
-    lp_bounds_lower[i] = glp_get_row_lb(lp, i+1);
-    lp_bounds_upper[i] = glp_get_row_ub(lp, i+1);
+    // Is not necessary -> we don't use auxiliary variables yet
+    /*lp_bounds_lower[i] = glp_get_row_lb(lp, i+1);
+      lp_bounds_upper[i] = glp_get_row_ub(lp, i+1); */
     tmp = glp_get_mat_row(lp, i+1, &lp_constraint_matrix_j[ind_offset-1],
 			           &lp_constraint_matrix_values[ind_offset-1]);
     if (tmp > 0)
       for (j = 0; j < tmp; j++)
 	lp_constraint_matrix_i[ind_offset+j] = i+1;
-    ind_offset += tmp;
+	ind_offset += tmp; 
   }
   
   // delete problem object
