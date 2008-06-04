@@ -2,7 +2,7 @@
 ## solve function --- C Interface
 
 Rglpk_solve_LP <-
-function(obj, mat, dir, rhs, type = NULL, max = FALSE,
+function(obj, mat, dir, rhs, types = NULL, max = FALSE,
          bounds = list(), verbose = FALSE)
 {
   ## validate direction of optimization
@@ -24,20 +24,20 @@ function(obj, mat, dir, rhs, type = NULL, max = FALSE,
   
   n_of_objective_vars <- length(obj)
 
-  constraint_matrix <- as.glp_matrix(mat)
+  constraint_matrix <- as.simple_triplet_matrix(mat)
 
-  ## type of objective coefficients
+  ## types of objective coefficients
   ## Default: "C"
-  if(is.null(type))
-    type <- "C"
+  if(is.null(types))
+    types <- "C"
   ## check if valid types
-  if(any(is.na(match(type, c("I", "B", "C"), nomatch = NA))))
-    stop("'type' must be either 'B', 'C' or 'I'.")
-  ## replicate type to fit number of columns
-  rep(type, length.out = n_of_objective_vars)
+  if(any(is.na(match(types, c("I", "B", "C"), nomatch = NA))))
+    stop("'types' must be either 'B', 'C' or 'I'.")
+  ## replicate types to fit number of columns
+  rep(types, length.out = n_of_objective_vars)
   ## need a TRUE/FALSE integer/binary representation
-  integers <- type == "I"
-  binaries <- type == "B"
+  integers <- types == "I"
+  binaries <- types == "B"
   
   ## do we have a mixed integer linear program?
   is_integer <- any(binaries | integers)
@@ -88,7 +88,7 @@ function(lp_objective_coefficients, lp_n_of_objective_vars,
             lp_constraint_matrix_i      = as.integer(lp_constraint_matrix_i),
             lp_constraint_matrix_j      = as.integer(lp_constraint_matrix_j),
             lp_constraint_matrix_values = as.double(lp_constraint_matrix_v),
-            lp_bounds_type              = as.integer(lp_bounds_type),
+            lp_bounds_type             = as.integer(lp_bounds_type),
             lp_bounds_lower             = as.double(lp_bounds_lower),
             ## lp_n_of_bounds_l            = as.integer(length(lp_lower_bounds_i)),
             lp_bounds_upper             = as.double(lp_bounds_upper), 

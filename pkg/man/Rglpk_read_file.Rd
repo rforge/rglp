@@ -9,7 +9,7 @@
 \usage{
 ## MPS file reader
 Rglpk_read_file(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
-verbose = FALSE) 
+ignore_first_row = FALSE, verbose = FALSE) 
 
 ## print method
 \method{print}{MP_data_from_file}(x, \ldots)
@@ -19,7 +19,10 @@ verbose = FALSE)
     the model file.}
   \item{type}{a character specifying the file type. This can be either
     \code{"MPS_fixed"}, \code{"MPS_free"} and \code{"CPLEX_LP"}.}
-  \item{verbose}{a logical for turning on/off additional solver output:
+  \item{ignore_first_row}{a logical indicating wheter the first row of
+    the model file should be ignored or not.
+    Default: \code{FALSE}.}
+  \item{verbose}{a logical for turning on/off additional solver output.
     Default: \code{FALSE}.}
   \item{x}{an object of class \code{"MP_data_from_file"}.}
   \item{\ldots}{further arguments passed on to the print method.}

@@ -28,7 +28,7 @@
 ##
 
 
-Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"), verbose = FALSE){
+Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"), ignore_first_row = FALSE, verbose = FALSE){
   if(!file.exists(file))
     stop(paste("There is no file called", file, "!"))
   ## which file type to read from
@@ -45,12 +45,12 @@ Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
   ## we need this to reserve memory in R accordingly
   meta_data <- glp_get_meta_data_from_file(obj, verbose)
   ## second, read all remaining data
-  milp_data <- glp_retrieve_MP_from_file(meta_data, verbose)
+  milp_data <- glp_retrieve_MP_from_file(meta_data, ignore_first_row, verbose)
   ## merge everything together
   MP_data <- glp_merge_MP_data(meta_data, milp_data)
   ## Post processing
   MP_data$type <- names(type_db[type_db == MP_data$type])
-  dir_db <- c("<" = 1L, "<=" = 2L, ">" = 3L, ">=" = 4L, "==" = 5L)
+  dir_db <- c("FREE" = 1L, ">=" = 2L, "<=" = 3L, "DB" = 4L, "==" = 5L)
   MP_data$direction_of_constraints <- names(dir_db[MP_data$direction_of_constraints])
   ## default is to have only continuous variables
   ## if any is binary or integer set the value accordingly
@@ -76,7 +76,7 @@ Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
   out$n_integer_vars <- MP_data$n_integer_vars
   out$n_binary_vars <- MP_data$n_binary_vars
   out$n_constraints <- MP_data$n_constraints
-  out$n_values_in_constraint_matrix <- MP_data$n_values_in_constraint_matrix
+  ##out$n_values_in_constraint_matrix <- MP_data$n_values_in_constraint_matrix
   out$file_type <- MP_data$type
   out$file_name <- MP_data$file
   class(out) <- c("MP_data_from_file", class(out))
@@ -85,7 +85,7 @@ Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
 
 ## First parse file to get some meta data of the LP/MILP
 ## (number of constraints/objective variables, direction of optimization, ...)
-glp_get_meta_data_from_file <- function(x, verbose = FALSE){
+glp_get_meta_data_from_file <- function(x, verbose){   
   res <- .C("Rglpk_read_file",
             file                          = as.character(x$file),
             type                          = as.integer(x$type),
@@ -104,7 +104,7 @@ glp_get_meta_data_from_file <- function(x, verbose = FALSE){
 }
 
 ## Retrieve all missing elements of the LP/MILP
-glp_retrieve_MP_from_file <- function(x, verbose = FALSE){
+glp_retrieve_MP_from_file <- function(x, ignore_first_row, verbose = FALSE){
   res <- .C("Rglpk_retrieve_MP_from_file",
             file                     = as.character(x$file),
             type                     = as.integer(x$type),
@@ -131,14 +131,27 @@ glp_retrieve_MP_from_file <- function(x, verbose = FALSE){
   ## replace infinity values
   res$bounds_lower <- replace(res$bounds_lower, res$bounds_lower == -.Machine$double.xmax, -Inf)
   res$bounds_upper <- replace(res$bounds_upper, res$bounds_upper == .Machine$double.xmax, Inf)
+  ## in MPS definition first row is sometimes problematic. E.g., in MIPLIB2003
+  ## it has to be removed!
+  if(ignore_first_row){
+    res$n_constraints <- res$n_constraints - 1
+    res$constraint_matrix_i <- res$constraint_matrix_i[-(1:res$n_objective_vars)] - 1
+    res$constraint_matrix_j <- res$constraint_matrix_j[-(1:res$n_objective_vars)] - 1
+    res$constraint_matrix_values <- res$constraint_matrix_values[-(1:res$n_objective_vars)]
+    res$right_hand_side <- res$right_hand_side[-1]
+    res$direction_of_constraints <- res$direction_of_constraints[-1]
+  }
   res
 }
                         
 glp_merge_MP_data <- function(x, y){
   out <- list(objective_coefficients        = y$objective_coefficients,
-              constraint_matrix             = glp_matrix(y$constraint_matrix_i,
-                                                         y$constraint_matrix_j,
-                                                         y$constraint_matrix_values),
+              constraint_matrix             = simple_triplet_matrix(
+                                                   y$constraint_matrix_i,
+                                                   y$constraint_matrix_j,
+                                                   y$constraint_matrix_values,
+                                                   y$n_constraints,
+                                                   y$n_objective_vars),
               direction_of_constraints      = y$direction_of_constraints,
               right_hand_side               = y$right_hand_side,
               objective_var_is_integer      = as.logical(y$objective_var_is_integer),
@@ -152,7 +165,8 @@ glp_merge_MP_data <- function(x, y){
               n_objective_vars              = x$n_objective_vars,
               n_integer_vars                = x$n_integer_vars,
               n_binary_vars                 = x$n_binary_vars,
-              n_constraints                 = x$n_constraints,
+              ## here from y because it might have changed -> ignore_first_row_parameter
+              n_constraints                 = y$n_constraints,
               n_values_in_constraint_matrix = x$n_values_in_constraint_matrix,
               ## problem_name                  = x$problem_name,
               file                          = x$file,

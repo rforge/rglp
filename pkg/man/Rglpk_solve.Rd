@@ -6,7 +6,7 @@
   linear as well as mixed integer linear programming problems (MILPs).
 }
 \usage{
-Rglpk_solve_LP(obj, mat, dir, rhs, type = NULL, max = FALSE,
+Rglpk_solve_LP(obj, mat, dir, rhs, types = NULL, max = FALSE,
                bounds = list(), verbose = FALSE)
 }
 \arguments{
@@ -16,8 +16,8 @@ Rglpk_solve_LP(obj, mat, dir, rhs, type = NULL, max = FALSE,
     Each element must be one of \code{"<"}, \code{"<="}, \code{">"},
     \code{">="}, or \code{"=="}.}
   \item{rhs}{the right hand side of the constraints}
-  \item{type}{a vector indicating the type of the objective
-    coefficients. \code{type} can be either \code{"B"} for binary,
+  \item{types}{a vector indicating the types of the objective
+    coefficients. \code{types} can be either \code{"B"} for binary,
     \code{"C"} for continuous or \code{"I"} for integer. By default all
     coefficients are of type \code{"C"}.}
   \item{max}{a logical giving the direction of the optimization.
@@ -88,10 +88,10 @@ obj <- c(3, 1, 3)
 mat <- matrix(c(-1, 0, 1, 2, 4, -3, 1, -3, 2), nrow = 3)
 dir <- c("<=", "<=", "<=")
 rhs <- c(4, 2, 3)
-type <- c("I", "C", "I")
+types <- c("I", "C", "I")
 max <- TRUE
 
-Rglpk_solve_LP(obj, mat, dir, rhs, type, max)
+Rglpk_solve_LP(obj, mat, dir, rhs, types, max)
 
 ## Same as before but with bounds replaced by
 ## -Inf <  x_1 <= 4
@@ -100,6 +100,6 @@ Rglpk_solve_LP(obj, mat, dir, rhs, type, max)
 
 bounds <- list(lower = list(ind = c(1L, 3L), val = c(-Inf, 2)),
                upper = list(ind = c(1L, 2L), val = c(4, 100)))
-Rglpk_solve_LP(obj, mat, dir, rhs, type, max, bounds)
+Rglpk_solve_LP(obj, mat, dir, rhs, types, max, bounds)
 }
 \keyword{optimize}
