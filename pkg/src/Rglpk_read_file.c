@@ -81,6 +81,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 				  int *lp_bounds_type,
 				  double *lp_bounds_lower,
 				  double *lp_bounds_upper,
+				  int *lp_ignore_first_row,
 				  int *lp_verbosity) {
   glp_prob *lp;
   int i, j, lp_column_kind, tmp;
@@ -126,7 +127,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
   
   ind_offset = 0;
   // retrieve row specific data (right hand side, direction of constraints)
-  for (i = 0; i < *lp_n_constraints; i++) {
+  for (i = *lp_ignore_first_row; i < *lp_n_constraints; i++) {
     lp_direction_of_constraints[i] = glp_get_row_type(lp, i+1);
 
     // the right hand side. Note we don't allow for double bounded or

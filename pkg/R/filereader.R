@@ -124,6 +124,7 @@ glp_retrieve_MP_from_file <- function(x, ignore_first_row, verbose = FALSE){
             bounds_type              = integer(x$n_objective_vars),
             bounds_lower             = double(x$n_objective_vars),
             bounds_upper             = double(x$n_objective_vars),
+            lp_ignore_first_row      = as.integer(ignore_first_row),
             verbosity                = as.integer(verbose),
             PACKAGE = "Rglpk")
   ## lp_is_integer               = as.integer(lp_is_integer),
@@ -135,11 +136,14 @@ glp_retrieve_MP_from_file <- function(x, ignore_first_row, verbose = FALSE){
   ## it has to be removed!
   if(ignore_first_row){
     res$n_constraints <- res$n_constraints - 1
-    res$constraint_matrix_i <- res$constraint_matrix_i[-(1:res$n_objective_vars)] - 1
-    res$constraint_matrix_j <- res$constraint_matrix_j[-(1:res$n_objective_vars)] - 1
-    res$constraint_matrix_values <- res$constraint_matrix_values[-(1:res$n_objective_vars)]
+    ## zeros values in the constraint matrix have to be removed, these
+    ## are the values from the first row
+    to_remove <- which(res$constraint_matrix_values == 0)
+    res$constraint_matrix_i <- res$constraint_matrix_i[-to_remove] - 1
+    res$constraint_matrix_j <- res$constraint_matrix_j[-to_remove]
+    res$constraint_matrix_values <- res$constraint_matrix_values[-to_remove]
     res$right_hand_side <- res$right_hand_side[-1]
-    res$direction_of_constraints <- res$direction_of_constraints[-1]
+    #res$direction_of_constraints <- res$direction_of_constraints[-length(res$right_hand_side)]
   }
   res
 }

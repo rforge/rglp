@@ -3,7 +3,7 @@
 \alias{print.MP_data_from_file}
 \title{Interface to GLPK's file reader}
 \description{
-  High level R interface to the MPS and CPLEX reader of the GNU Linear
+  High level R interface to the MPS and CPLEX\_LP reader of the GNU Linear
   Programming Kit (GLPK).
 }
 \usage{
@@ -17,9 +17,9 @@ ignore_first_row = FALSE, verbose = FALSE)
 \arguments{
   \item{file}{a character specifying the relative or absolute path to
     the model file.}
-  \item{type}{a character specifying the file type. This can be either
+  \item{type}{a character specifying the file format. This can be either
     \code{"MPS_fixed"}, \code{"MPS_free"} and \code{"CPLEX_LP"}.}
-  \item{ignore_first_row}{a logical indicating wheter the first row of
+  \item{ignore_first_row}{a logical indicating whether the first row of
     the model file should be ignored or not.
     Default: \code{FALSE}.}
   \item{verbose}{a logical for turning on/off additional solver output.
@@ -27,9 +27,9 @@ ignore_first_row = FALSE, verbose = FALSE)
   \item{x}{an object of class \code{"MP_data_from_file"}.}
   \item{\ldots}{further arguments passed on to the print method.}
 }
-\details{\code{Rglpk_read_file()} takes the path to file as an
+\details{\code{Rglpk_read_file()} takes the path to a file as an
   argument and calls GLPK's file reader. The description of the linear or
-  mixed integer linear program is return as an object of class
+  mixed integer linear program is returned as an object of class
   \code{"MP_data_from_file"}.
 }
 \value{
@@ -42,8 +42,10 @@ ignore_first_row = FALSE, verbose = FALSE)
 %%\seealso{}
 \examples{
 ## not run:
-## dat <- Rglpk_read_file(some_file.MPS)
-## dat
+## x <- Rglpk_read_file(some_file.MPS)
+## x
+## Rglpk_solve_LP(x$objective, x$constraints[[1]], x$constraints[[2]],
+##                x$constraints[[3]], x$types, x$maximum, x$bounds)
 }
 \keyword{IO}
 \keyword{utilities}
