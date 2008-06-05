@@ -9,7 +9,7 @@
 ## maximum: logical
 
 MILP <-
-function(objective, constraints, types = rep(types, length.out = length(objective)),
+function(objective, constraints, bounds = NULL, types = NULL, 
          maximum = FALSE)
 {
     ## In the simples case, 'constraints' is a (not necessarily named)
@@ -18,6 +18,6 @@ function(objective, constraints, types = rep(types, length.out = length(objectiv
     ## maybe also a little MILP_constraints() wrapper ...).
 
     structure(list(objective = objective, constraints = constraints,
-                   types = types, maximum = maximum),
+                   bounds = bounds, types = types, maximum = maximum),
               class = "MILP")
 }

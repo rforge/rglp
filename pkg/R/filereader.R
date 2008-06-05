@@ -67,11 +67,10 @@ Rglpk_read_file <- function(file, type = c("MPS_fixed", "MPS_free", "CPLEX_LP"),
               constraints = list(MP_data$constraint_matrix,
                                  MP_data$direction_of_constraints,
                                  MP_data$right_hand_side),
+              bounds = MP_data$bounds,
               types = types,
               maximum = MP_data$maximize
               )
-  out$bounds <- MP_data$bounds
-
   out$n_objective_vars <- MP_data$n_objective_vars
   out$n_integer_vars <- MP_data$n_integer_vars
   out$n_binary_vars <- MP_data$n_binary_vars
