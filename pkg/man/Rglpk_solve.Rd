@@ -7,7 +7,7 @@
 }
 \usage{
 Rglpk_solve_LP(obj, mat, dir, rhs, types = NULL, max = FALSE,
-               bounds = list(), verbose = FALSE)
+               bounds = NULL, verbose = FALSE)
 }
 \arguments{
   \item{obj}{a vector with the objective coefficients}
