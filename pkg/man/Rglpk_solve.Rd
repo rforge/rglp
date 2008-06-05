@@ -17,9 +17,9 @@ Rglpk_solve_LP(obj, mat, dir, rhs, types = NULL, max = FALSE,
     \code{">="}, or \code{"=="}.}
   \item{rhs}{the right hand side of the constraints}
   \item{types}{a vector indicating the types of the objective
-    coefficients. \code{types} can be either \code{"B"} for binary,
+    variables. \code{types} can be either \code{"B"} for binary,
     \code{"C"} for continuous or \code{"I"} for integer. By default all
-    coefficients are of type \code{"C"}.}
+    variables are of type \code{"C"}.}
   \item{max}{a logical giving the direction of the optimization.
     \code{TRUE} means that the objective is to maximize the objective
     function, \code{FALSE} (default) means to minimize it.}
