@@ -34,7 +34,7 @@ function(obj, mat, dir, rhs, types = NULL, max = FALSE,
   if(any(is.na(match(types, c("I", "B", "C"), nomatch = NA))))
     stop("'types' must be either 'B', 'C' or 'I'.")
   ## replicate types to fit number of columns
-  rep(types, length.out = n_of_objective_vars)
+  types <- rep(types, length.out = n_of_objective_vars)
   ## need a TRUE/FALSE integer/binary representation
   integers <- types == "I"
   binaries <- types == "B"
