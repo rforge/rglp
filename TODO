@@ -1,0 +1,14 @@
+
+* integer/binary variables
+	Are the integer variables really integers? that means how accurate is the integer solution?	
+	or do we need something like:	
+
+solution[int] <- round(solution[int])
+
+* duplicated entries in constraint matrix
+	if duplicated entries in the constraint matrix occur then before exiting look if the 
+	whole constraint is really the same, if so delete one of them and print out a warning 
+	otherwise stop. In C code remove the abort call as it directly exits R. Replace it with 
+	something similar like stop().
+
+
