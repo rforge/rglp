@@ -24,6 +24,7 @@
 #ifndef _GLPLIB_H
 #define _GLPLIB_H
 
+#include <R.h>
 #include "glpstd.h"
 
 typedef struct { int lo, hi; } xlong_t;

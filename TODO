@@ -11,4 +11,10 @@ solution[int] <- round(solution[int])
 	otherwise stop. In C code remove the abort call as it directly exits R. Replace it with 
 	something similar like stop().
 
+   UPDATE: partially solved: added R.h in glplib.h and replaced
+   abort(); with error("Stopped.").
+
+* Rprintf() -> default C level printing function
+
+
 
