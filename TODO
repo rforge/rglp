@@ -10,7 +10,8 @@ solution[int] <- round(solution[int])
 	whole constraint is really the same, if so delete one of them and print out a warning 
 	otherwise stop. In C code remove the abort call as it directly exits R. Replace it with 
 	something similar like stop().
-
+   Nevertheless a function like check constraint matrix for sanity
+   should be included.
    UPDATE: partially solved: added R.h in glplib.h and replaced
    abort(); with error("Stopped.").
 
