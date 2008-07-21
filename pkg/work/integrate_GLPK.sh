@@ -1,11 +1,11 @@
 ## Usage integrate_GLPK.sh [GLPK.tar.gz]
 ## Integrates the latest GLPK package
-## theussl, 2008-02-17
+## theussl, 2008-07-08
 
 ## latest glpk tarball (Austrian mirror out of date)
 #URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
 URL="ftp://ftp.gnu.org/gnu/glpk/"
-latest="glpk-4.28.tar.gz"
+latest="glpk-4.29.tar.gz"
 ## where to put source files and headers
 DESTINATION=../src
 

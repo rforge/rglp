@@ -79,8 +79,7 @@ void lib_xerror2(const char *fmt, ...)
          env->err_file, env->err_line);
       fflush(stdout);
       fflush(stderr);
-      // replaced abort(); with error
-      error("Stopped.");
+      abort();
       /* no return */
 }
 
