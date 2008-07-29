@@ -1,0 +1,17 @@
+2008-07-30  Stefan Theussl  <stefan.theussl@wu-wien.ac.at>
+
+	* FIXED: integer/binary variables are now rounded to reduce
+	  failures due to numerical artefacts
+
+
+2008-07-21  Stefan Theussl  <stefan.theussl@wu-wien.ac.at>
+
+	* UPDATED: GLPK 4.29 integrated
+
+
+2008-06-06  Stefan Theussl  <stefan.theussl@wu-wien.ac.at>
+
+	* RELEASE: Rglpk released to CRAN. It interfaces GLPK version
+	  4.28. Facilities to read MPS and CPLEX-LP format added.
+
+	
