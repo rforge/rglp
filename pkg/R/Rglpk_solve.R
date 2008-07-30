@@ -55,15 +55,14 @@ function(obj, mat, dir, rhs, types = NULL, max = FALSE,
                           direction_of_optimization, bounds[, 1L],
                           bounds[, 2L], bounds[, 3L], verb)
   
-  optimum <- x$lp_optimum
   solution <- x$lp_objective_vars_values
-  ## are integer variables really integers? better do a rounding
+  ## are integer variables really integers? better round values
   solution[integers | binaries] <-
     round( solution[integers | binaries])
   ## match status of solution
   ## 0 -> optimal solution (5 in GLPK) else 1
   status <- as.integer(x$lp_status != 5L)
-  list(optimum = optimum, solution = solution, status = status)
+  list(optimum = sum(solution * obj), solution = solution, status = status)
 }
 
 ## this function calls the C interface
