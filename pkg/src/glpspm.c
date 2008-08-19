@@ -246,7 +246,7 @@ SPM *spm_test_mat_d(int n, int c)
 *
 *  The routine spm_show_mat writes pattern of the specified sparse
 *  matrix in uncompressed BMP file format (Windows bitmap) to a binary
-*  file whose name is spesified by the character string fname.
+*  file whose name is specified by the character string fname.
 *
 *  Each pixel corresponds to one matrix element. The pixel colors have
 *  the following meaning:

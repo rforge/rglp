@@ -73,7 +73,7 @@ static void create_prob(glp_prob *lp)
       lp->r_tree = lp->c_tree = NULL;
       /* basis factorization */
       lp->valid = 0;
-      lp->bhead = xcalloc(1+lp->m_max, sizeof(int));
+      lp->head = xcalloc(1+lp->m_max, sizeof(int));
       lp->bfcp = NULL;
       lp->bfd = NULL;
       /* basic solution (LP) */
@@ -231,8 +231,8 @@ int glp_add_rows(glp_prob *lp, int nrs)
          memcpy(&lp->row[1], &save[1], lp->m * sizeof(GLPROW *));
          xfree(save);
          /* do not forget about the basis header */
-         xfree(lp->bhead);
-         lp->bhead = xcalloc(1+lp->m_max, sizeof(int));
+         xfree(lp->head);
+         lp->head = xcalloc(1+lp->m_max, sizeof(int));
       }
       /* add new rows to the end of the row list */
       for (i = lp->m+1; i <= m_new; i++)
@@ -1119,12 +1119,12 @@ void glp_del_cols(glp_prob *lp, int ncs, const int num[])
       /* if the basis header is still valid, adjust it */
       if (lp->valid)
       {  int m = lp->m;
-         int *bhead = lp->bhead;
+         int *head = lp->head;
          for (j = 1; j <= n_new; j++)
          {  k = lp->col[j]->bind;
             if (k != 0)
             {  xassert(1 <= k && k <= m);
-               bhead[k] = m + j;
+               head[k] = m + j;
             }
          }
       }
@@ -1178,7 +1178,7 @@ static void delete_prob(glp_prob *lp)
       xfree(lp->col);
       if (lp->r_tree != NULL) avl_delete_tree(lp->r_tree);
       if (lp->c_tree != NULL) avl_delete_tree(lp->c_tree);
-      xfree(lp->bhead);
+      xfree(lp->head);
       if (lp->bfcp != NULL) xfree(lp->bfcp);
       if (lp->bfd != NULL) bfd_delete_it(lp->bfd);
       return;

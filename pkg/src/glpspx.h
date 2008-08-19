@@ -24,7 +24,7 @@
 #ifndef _GLPSPX_H
 #define _GLPSPX_H
 
-#include "glpbfd.h"
+#include "glpapi.h"
 
 typedef struct SPX SPX;
 
@@ -399,6 +399,12 @@ int spx_dual_opt(SPX *spx);
 #define spx_simplex _glp_spx_simplex
 int spx_simplex(SPX *spx);
 /* base driver to the simplex method */
+
+/**********************************************************************/
+
+#define spx_primal _glp_spx_primal
+int spx_primal(glp_prob *lp, const glp_smcp *parm);
+/* core LP solver based on the primal simplex method */
 
 #endif
 

@@ -9,7 +9,14 @@
    UPDATE: partially solved: added R.h in glplib.h and replaced
    abort(); with error("Stopped.").
 
-* Rprintf() -> default C level printing function
+* data structure for read_file
+   doesn't work yet to solve a read problem as there is something wrong
+   with the max argument. I think x$max -> "maximize". this has to be fixed
+
+* Interior point solver
+   integrate interior point solver
+
+
 
 
 

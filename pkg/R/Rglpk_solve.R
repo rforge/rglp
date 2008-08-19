@@ -102,3 +102,16 @@ function(lp_objective_coefficients, lp_n_of_objective_vars,
             NAOK = TRUE, PACKAGE = "Rglpk")
   out
 }
+
+## Convenience function for solving MILP objects (e.g., read by filereader)
+.Rglpk_solve <- function(x, control = list()){
+  if(!inherits(x, "MILP"))
+    stop("'x' must be of class 'MILP'")
+  if(is.null(control$verbose))
+    control$verbose <- FALSE
+  Rglpk_solve_LP(x$objective, x$constraints[[1]],
+                 x$constraints[[2]], x$constraints[[3]],
+                 x$types, x$maximum, x$bounds,
+                 verbose = control$verbose)
+}
+
