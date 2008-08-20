@@ -17,5 +17,5 @@ void Rglpk_initialize(void){
 void Rglpk_get_engine_version(char **GLPK_version){
   const char *str;
   str = glp_version();
-  *GLPK_version = str;
+  *GLPK_version = (char *) str;
 }
