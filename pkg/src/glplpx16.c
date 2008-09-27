@@ -1,7 +1,9 @@
-/* glplpx16.c */
+/* glplpx16.c (OPB format) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
+*
+*  Author: Oscar Gustafsson <oscarg@isy.liu.se>.
 *
 *  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
@@ -21,195 +23,264 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
 #define _GLPSTD_STDIO
 #include "glpapi.h"
-#include "glpmpl.h"
+#include "glpipp.h"
 
 /*----------------------------------------------------------------------
--- lpx_extract_prob - extract problem instance from MathProg model.
+-- lpx_write_pb - write problem data in (normalized) OPB format.
 --
 -- *Synopsis*
 --
 -- #include "glplpx.h"
--- LPX *lpx_extract_prob(void *mpl);
+-- int lpx_write_pb(LPX *lp, const char *fname, int normalized,
+--    int binarize);
 --
 -- *Description*
 --
--- The routine lpx_extract_prob extracts the problem instance from the
--- MathProg translator database.
+-- The routine lpx_write_pb writes problem data in OPB format
+-- to an output text file whose name is the character string fname.
+-- If normalized is non-zero the output will be generated in a
+-- normalized form with sequentially numbered variables, x1, x2 etc.
+-- If binarize, any integer variable will be repalzec by binary ones,
+-- see ipp_binarize
 --
 -- *Returns*
 --
--- The routine returns a pointer to the extracted problem object. */
+-- If the operation was successful, the routine returns zero. Otherwise
+-- the routine prints an error message and returns non-zero. */
 
-LPX *lpx_extract_prob(void *_mpl)
-{     MPL *mpl = _mpl;
-      LPX *lp;
-      int m, n, i, j, t, kind, type, len, *ind;
-      double lb, ub, *val;
-      /* create problem instance */
-      lp = lpx_create_prob();
-      /* set problem name */
-      lpx_set_prob_name(lp, mpl_get_prob_name(mpl));
-      /* build rows (constraints) */
-      m = mpl_get_num_rows(mpl);
-      if (m > 0) lpx_add_rows(lp, m);
-      for (i = 1; i <= m; i++)
-      {  /* set row name */
-         lpx_set_row_name(lp, i, mpl_get_row_name(mpl, i));
-         /* set row bounds */
-         type = mpl_get_row_bnds(mpl, i, &lb, &ub);
-         switch (type)
-         {  case MPL_FR: type = LPX_FR; break;
-            case MPL_LO: type = LPX_LO; break;
-            case MPL_UP: type = LPX_UP; break;
-            case MPL_DB: type = LPX_DB; break;
-            case MPL_FX: type = LPX_FX; break;
-            default: xassert(type != type);
-         }
-         if (type == LPX_DB && fabs(lb - ub) < 1e-9 * (1.0 + fabs(lb)))
-         {  type = LPX_FX;
-            if (fabs(lb) <= fabs(ub)) ub = lb; else lb = ub;
-         }
-         lpx_set_row_bnds(lp, i, type, lb, ub);
-         /* warn about non-zero constant term */
-         if (mpl_get_row_c0(mpl, i) != 0.0)
-            xprintf(
-               "lpx_read_model: row %s; constant term %.12g ignored\n",
-               mpl_get_row_name(mpl, i), mpl_get_row_c0(mpl, i));
-      }
-      /* build columns (variables) */
-      n = mpl_get_num_cols(mpl);
-      if (n > 0) lpx_add_cols(lp, n);
-      for (j = 1; j <= n; j++)
-      {  /* set column name */
-         lpx_set_col_name(lp, j, mpl_get_col_name(mpl, j));
-         /* set column kind */
-         kind = mpl_get_col_kind(mpl, j);
-         switch (kind)
-         {  case MPL_NUM:
-               break;
-            case MPL_INT:
-            case MPL_BIN:
-#if 0
-               lpx_set_class(lp, LPX_MIP);
-#endif
-               lpx_set_col_kind(lp, j, LPX_IV);
-               break;
-            default:
-               xassert(kind != kind);
-         }
-         /* set column bounds */
-         type = mpl_get_col_bnds(mpl, j, &lb, &ub);
-         switch (type)
-         {  case MPL_FR: type = LPX_FR; break;
-            case MPL_LO: type = LPX_LO; break;
-            case MPL_UP: type = LPX_UP; break;
-            case MPL_DB: type = LPX_DB; break;
-            case MPL_FX: type = LPX_FX; break;
-            default: xassert(type != type);
-         }
-         if (kind == MPL_BIN)
-         {  if (type == LPX_FR || type == LPX_UP || lb < 0.0) lb = 0.0;
-            if (type == LPX_FR || type == LPX_LO || ub > 1.0) ub = 1.0;
-            type = LPX_DB;
-         }
-         if (type == LPX_DB && fabs(lb - ub) < 1e-9 * (1.0 + fabs(lb)))
-         {  type = LPX_FX;
-            if (fabs(lb) <= fabs(ub)) ub = lb; else lb = ub;
-         }
-         lpx_set_col_bnds(lp, j, type, lb, ub);
-      }
-      /* load the constraint matrix */
-      ind = xcalloc(1+n, sizeof(int));
+int lpx_write_pb(LPX *lp, const char *fname, int normalized,
+      int binarize)
+{
+  FILE* fp;
+  int m,n,i,j,k,o,nonfree=0, obj_dir, dbl, *ndx, row_type, emptylhs=0;
+  double coeff, *val, bound, constant/*=0.0*/;
+  char* objconstname = "dummy_one";
+  char* emptylhsname = "dummy_zero";
+
+  /* Variables needed for possible binarization */
+  /*LPX* tlp;*/
+  IPP *ipp = NULL;
+  /*tlp=lp;*/
+
+  if(binarize) /* Transform integer variables to binary ones */
+    {
+      ipp = ipp_create_wksp();
+      ipp_load_orig(ipp, lp);
+      ipp_binarize(ipp);
+      lp = ipp_build_prob(ipp);
+    }
+  fp = fopen(fname, "w");
+
+  if(fp!= NULL)
+    {
+      xprintf(
+          "lpx_write_pb: writing problem in %sOPB format to `%s'...\n",
+              (normalized?"normalized ":""), fname);
+
+      m = glp_get_num_rows(lp);
+      n = glp_get_num_cols(lp);
+      for(i=1;i<=m;i++)
+        {
+          switch(glp_get_row_type(lp,i))
+            {
+            case GLP_LO:
+            case GLP_UP:
+            case GLP_FX:
+              {
+                nonfree += 1;
+                break;
+              }
+            case GLP_DB:
+              {
+                nonfree += 2;
+                break;
+              }
+            }
+        }
+      constant=glp_get_obj_coef(lp,0);
+      fprintf(fp,"* #variables = %d #constraints = %d\n",
+         n + (constant == 0?1:0), nonfree + (constant == 0?1:0));
+      /* Objective function */
+      obj_dir = glp_get_obj_dir(lp);
+      fprintf(fp,"min: ");
+      for(i=1;i<=n;i++)
+        {
+          coeff = glp_get_obj_coef(lp,i);
+          if(coeff != 0.0)
+            {
+              if(obj_dir == GLP_MAX)
+                coeff=-coeff;
+              if(normalized)
+                fprintf(fp, " %d x%d", (int)coeff, i);
+              else
+                fprintf(fp, " %d*%s", (int)coeff,
+                  glp_get_col_name(lp,i));
+
+            }
+        }
+      if(constant)
+        {
+          if(normalized)
+            fprintf(fp, " %d x%d", (int)constant, n+1);
+          else
+            fprintf(fp, " %d*%s", (int)constant, objconstname);
+        }
+      fprintf(fp,";\n");
+
+      if(normalized && !binarize)  /* Name substitution */
+        {
+          fprintf(fp,"* Variable name substitution:\n");
+          for(j=1;j<=n;j++)
+            {
+              fprintf(fp, "* x%d = %s\n", j, glp_get_col_name(lp,j));
+            }
+          if(constant)
+            fprintf(fp, "* x%d = %s\n", n+1, objconstname);
+        }
+
+      ndx = xcalloc(1+n, sizeof(int));
       val = xcalloc(1+n, sizeof(double));
-      for (i = 1; i <= m; i++)
-      {  len = mpl_get_mat_row(mpl, i, ind, val);
-         lpx_set_mat_row(lp, i, len, ind, val);
-      }
-      /* build objective function (the first objective is used) */
-      for (i = 1; i <= m; i++)
-      {  kind = mpl_get_row_kind(mpl, i);
-         if (kind == MPL_MIN || kind == MPL_MAX)
-         {  /* set objective name */
-            lpx_set_obj_name(lp, mpl_get_row_name(mpl, i));
-            /* set optimization direction */
-            lpx_set_obj_dir(lp, kind == MPL_MIN ? LPX_MIN : LPX_MAX);
-            /* set constant term */
-            lpx_set_obj_coef(lp, 0, mpl_get_row_c0(mpl, i));
-            /* set objective coefficients */
-            len = mpl_get_mat_row(mpl, i, ind, val);
-            for (t = 1; t <= len; t++)
-               lpx_set_obj_coef(lp, ind[t], val[t]);
-            break;
-         }
-      }
-      /* free working arrays */
-      xfree(ind);
+
+      /* Constraints */
+      for(j=1;j<=m;j++)
+        {
+          row_type=glp_get_row_type(lp,j);
+          if(row_type!=GLP_FR)
+            {
+              if(row_type == GLP_DB)
+                {
+                  dbl=2;
+                  row_type = GLP_UP;
+                }
+              else
+                {
+                  dbl=1;
+                }
+              k=glp_get_mat_row(lp, j, ndx, val);
+              for(o=1;o<=dbl;o++)
+                {
+                  if(o==2)
+                    {
+                      row_type = GLP_LO;
+                    }
+                  if(k==0) /* Empty LHS */
+                    {
+                      emptylhs = 1;
+                      if(normalized)
+                        {
+                          fprintf(fp, "0 x%d ", n+2);
+                        }
+                      else
+                        {
+                          fprintf(fp, "0*%s ", emptylhsname);
+                        }
+                    }
+
+                  for(i=1;i<=k;i++)
+                    {
+                      if(val[i] != 0.0)
+                        {
+
+                          if(normalized)
+                            {
+                              fprintf(fp, "%d x%d ",
+              (row_type==GLP_UP)?(-(int)val[i]):((int)val[i]), ndx[i]);
+                            }
+                          else
+                            {
+                              fprintf(fp, "%d*%s ", (int)val[i],
+                                      glp_get_col_name(lp,ndx[i]));
+                            }
+                        }
+                    }
+                  switch(row_type)
+                    {
+                    case GLP_LO:
+                      {
+                        fprintf(fp, ">=");
+                        bound = glp_get_row_lb(lp,j);
+                        break;
+                      }
+                    case GLP_UP:
+                      {
+                        if(normalized)
+                          {
+                            fprintf(fp, ">=");
+                            bound = -glp_get_row_ub(lp,j);
+                          }
+                        else
+                          {
+                            fprintf(fp, "<=");
+                            bound = glp_get_row_ub(lp,j);
+                          }
+
+                        break;
+                      }
+                    case GLP_FX:
+                      {
+                        fprintf(fp, "=");
+                        bound = glp_get_row_lb(lp,j);
+                        break;
+                      }
+                    }
+                  fprintf(fp," %d;\n",(int)bound);
+                }
+            }
+        }
+      xfree(ndx);
       xfree(val);
-      /* bring the problem object to the calling program */
-      return lp;
-}
 
-/*----------------------------------------------------------------------
--- lpx_read_model - read LP/MIP model written in GNU MathProg language.
---
--- *Synopsis*
---
--- #include "glplpx.h"
--- LPX *lpx_read_model(char *model, char *data, char *output);
---
--- *Description*
---
--- The routine lpx_read_model reads and translates LP/MIP model written
--- in the GNU MathProg modeling language.
---
--- The character string model specifies name of input text file, which
--- contains model section and, optionally, data section. This parameter
--- cannot be NULL.
---
--- The character string data specifies name of input text file, which
--- contains data section. This parameter can be NULL. (If the data file
--- is specified and the model file also has data section, that section
--- is ignored.)
---
--- The character string output specifies name of output text file, to
--- which the output produced by display statement(s) should be written.
--- This parameter can be NULL, in which case the display output is sent
--- to stdout via the routine print.
---
--- *Returns*
---
--- If no errors occurred, the routine returns a pointer to the problem
--- object created. Otherwise the routine returns NULL. */
+      if(constant)
+        {
+          xprintf(
+        "lpx_write_pb: adding constant objective function variable\n");
 
-LPX *lpx_read_model(const char *model, const char *data,
-      const char *output)
-{     LPX *lp = NULL;
-      MPL *mpl;
-      int ret;
-      /* create and initialize the translator database */
-      mpl = mpl_initialize();
-      /* read model section and optional data section */
-      ret = mpl_read_model(mpl, (char *)model, data != NULL);
-      if (ret == 4) goto done;
-      xassert(ret == 1 || ret == 2);
-      /* read data section, if necessary */
-      if (data != NULL)
-      {  xassert(ret == 1);
-         ret = mpl_read_data(mpl, (char *)data);
-         if (ret == 4) goto done;
-         xassert(ret == 2);
-      }
-      /* generate model */
-      ret = mpl_generate(mpl, (char *)output);
-      if (ret == 4) goto done;
-      xassert(ret == 3);
-      /* extract problem instance */
-      lp = lpx_extract_prob(mpl);
-done: /* free resources used by the model translator */
-      mpl_terminate(mpl);
-      return lp;
+          if(normalized)
+            fprintf(fp, "1 x%d = 1;\n", n+1);
+          else
+            fprintf(fp, "1*%s = 1;\n", objconstname);
+        }
+      if(emptylhs)
+        {
+          xprintf(
+            "lpx_write_pb: adding dummy variable for empty left-hand si"
+            "de constraint\n");
+
+          if(normalized)
+            fprintf(fp, "1 x%d = 0;\n", n+2);
+          else
+            fprintf(fp, "1*%s = 0;\n", emptylhsname);
+        }
+
+    }
+  else
+    {
+      xprintf("Problems opening file for writing: %s\n", fname);
+      return(1);
+    }
+  fflush(fp);
+  if (ferror(fp))
+    {  xprintf("lpx_write_pb: can't write to `%s' - %s\n", fname,
+               strerror(errno));
+    goto fail;
+    }
+  fclose(fp);
+
+
+  if(binarize)
+    {
+      /* delete the resultant problem object */
+      if (lp != NULL) lpx_delete_prob(lp);
+      /* delete MIP presolver workspace */
+      if (ipp != NULL) ipp_delete_wksp(ipp);
+      /*lp=tlp;*/
+    }
+  return 0;
+ fail: if (fp != NULL) fclose(fp);
+  return 1;
 }
 
 /* eof */

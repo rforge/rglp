@@ -1,9 +1,7 @@
-/* glplpx15.c (bounds sensitivity analysis routine) */
+/* glplpx15.c */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
-*
-*  Author: Brady Hunsaker <bkh@member.fsf.org>.
 *
 *  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
@@ -29,546 +27,571 @@
 #include "glplib.h"
 
 /*----------------------------------------------------------------------
--- lpx_print_sens_bnds - write bounds sensitivity information.
+-- lpx_read_prob - read problem data in GNU LP format.
 --
 -- *Synopsis*
 --
 -- #include "glplpx.h"
--- int lpx_print_sens_bnds(LPX *lp, char *fname);
+-- LPX *lpx_read_prob(char *fname);
 --
 -- *Description*
 --
--- The routine lpx_print_sens_bnds writes the bounds for objective
--- coefficients, right-hand-sides of constraints, and variable bounds
--- for which the current optimal basic solution remains optimal (for LP
--- only).
---
--- The LP is given by the pointer lp, and the output is written to the
--- file specified by fname.  The current contents of the file will be
--- overwritten.
---
--- Information reported by the routine lpx_print_sens_bnds is intended
--- mainly for visual analysis.
+-- The routine lpx_read_prob reads LP/MIP problem data in GNU LP format
+-- from an input text file whose name is the character string fname.
 --
 -- *Returns*
 --
--- If the operation was successful, the routine returns zero. Otherwise
--- the routine prints an error message and returns non-zero. */
+-- If no error occurred, the routine returns a pointer to the created
+-- problem object. Otherwise the routine returns NULL. */
 
-int lpx_print_sens_bnds(LPX *lp, const char *fname)
-{     FILE *fp = NULL;
-      int what, round;
-      xprintf("lpx_print_sens_bnds: writing LP problem solution bounds "
-         "to `%s'...\n", fname);
-#if 1
-      /* added by mao */
-      /* this routine needs factorization of the current basis matrix
-         which, however, does not exist if the basic solution was
-         obtained by the lp presolver; therefore we should warm up the
-         basis to be sure that the factorization is valid (note that if
-         the factorization exists, lpx_warm_up does nothing) */
-      lpx_warm_up(lp);
-#endif
-#if 0 /* 21/XII-2003 by mao */
-      if (lp->b_stat == LPX_B_UNDEF)
-#else
-      if (!lpx_is_b_avail(lp))
-#endif
-      {  xprintf("lpx_print_sens_bnds: basis information not available "
-            "(may be a presolve issue)\n");
+struct dsa
+{     char *fname;
+      /* name of input text file */
+      FILE *fp;
+      /* stream assigned to input text file */
+      int count;
+      /* line count */
+      int c;
+      /* current character or EOF */
+};
+
+static int read_char(struct dsa *dsa)
+{     int c;
+      xassert(dsa->c != EOF);
+      if (dsa->c == '\n') dsa->count++;
+      c = fgetc(dsa->fp);
+      if (ferror(dsa->fp))
+      {  xprintf("%s:%d: read error - %s\n",
+            dsa->fname, dsa->count, strerror(errno));
+         return 1;
+      }
+      if (feof(dsa->fp))
+         c = (dsa->c == '\n' ? EOF : '\n');
+      else if (c == '\n')
+         ;
+      else if (isspace(c))
+         c = ' ';
+      else if (iscntrl(c))
+      {  xprintf("%s:%d: invalid control character 0x%02X\n",
+            dsa->fname, dsa->count, c);
+         return 1;
+      }
+      dsa->c = c;
+      return 0;
+}
+
+static int skip_comment(struct dsa *dsa)
+{     while (dsa->c != '\n')
+         if (read_char(dsa)) return 1;
+      if (read_char(dsa)) return 1;
+      return 0;
+}
+
+static int read_item(struct dsa *dsa, char item[255+1])
+{     int len = 0;
+      if (dsa->c == EOF)
+      {  xprintf("%s:%d: unexpected end of file\n",
+            dsa->fname, dsa->count);
+         return 1;
+      }
+      while (dsa->c == ' ')
+         if (read_char(dsa)) return 1;
+      if (dsa->c == '\n')
+      {  xprintf("%s:%d: unexpected end of line\n",
+            dsa->fname, dsa->count);
+         return 1;
+      }
+      while (!(dsa->c == ' ' || dsa->c == '\n'))
+      {  if (len == 255)
+         {  xprintf("%s:%d: data item `%.255s...' too long\n",
+               dsa->fname, dsa->count, item);
+            return 1;
+         }
+         item[len++] = (char)dsa->c;
+         if (read_char(dsa)) return 1;
+      }
+      item[len] = '\0';
+      return 0;
+}
+
+static int read_int(struct dsa *dsa, int *val)
+{     char item[255+1];
+      if (read_item(dsa, item)) return 1;
+      switch (str2int(item, val))
+      {  case 0:
+            break;
+         case 1:
+            xprintf("%s:%d: integer value `%s' out of range\n",
+               dsa->fname, dsa->count, item);
+            return 1;
+         case 2:
+            xprintf("%s:%d: invalid integer value `%s'\n",
+               dsa->fname, dsa->count, item);
+            return 1;
+         default:
+            xassert(str2int != str2int);
+      }
+      return 0;
+}
+
+static int read_num(struct dsa *dsa, double *val)
+{     char item[255+1];
+      if (read_item(dsa, item)) return 1;
+      switch (str2num(item, val))
+      {  case 0:
+            break;
+         case 1:
+            xprintf("%s:%d: floating-point value `%s' out of range\n",
+               dsa->fname, dsa->count, item);
+            return 1;
+         case 2:
+            xprintf("%s:%d: invalid floating-point value `%s'\n",
+               dsa->fname, dsa->count, item);
+            return 1;
+         default:
+            xassert(str2num != str2num);
+      }
+      return 0;
+}
+
+static int skip_until_nl(struct dsa *dsa)
+{     while (dsa->c == ' ')
+         if (read_char(dsa)) return 1;
+      if (dsa->c != '\n')
+      {  xprintf("%s:%d: extra data item(s) detected\n", dsa->fname,
+            dsa->count);
+         return 1;
+      }
+      if (read_char(dsa)) return 1;
+      return 0;
+}
+
+LPX *lpx_read_prob(char *fname)
+{     struct dsa _dsa, *dsa = &_dsa;
+      LPX *lp = NULL;
+      int m, n, nnz, loc, i, j, *ia = NULL, *ja = NULL;
+      double lb, ub, coef, *ar = NULL;
+      char item[255+1];
+      dsa->fname = fname;
+      dsa->fp = NULL;
+      dsa->count = 0;
+      dsa->c = '\n';
+      xprintf("lpx_read_prob: reading problem data from `%s'...\n",
+         dsa->fname);
+      dsa->fp = fopen(dsa->fname, "r");
+      if (dsa->fp == NULL)
+      {  xprintf("lpx_read_prob: unable to open `%s' - %s\n",
+            dsa->fname, strerror(errno));
          goto fail;
       }
+      lp = lpx_create_prob();
+      /* read very first character */
+      if (read_char(dsa)) goto fail;
+      /* skip optional comments */
+      while (dsa->c == '*')
+         if (skip_comment(dsa)) goto fail;
+      /* scan problem line */
+      if (read_item(dsa, item)) goto fail;
+      if (strcmp(item, "P") != 0)
+      {  xprintf("%s:%d: problem line missing\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      if (read_item(dsa, item)) goto fail;
+      if (strcmp(item, "LP") == 0)
+         /* lpx_set_class(lp, LPX_LP) */ ;
+      else if (strcmp(item, "MIP") == 0)
+         /* lpx_set_class(lp, LPX_MIP) */ ;
+      else
+      {  xprintf("%s:%d: unknown problem class\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      if (read_item(dsa, item)) goto fail;
+      if (strcmp(item, "MIN") == 0)
+         lpx_set_obj_dir(lp, LPX_MIN);
+      else if (strcmp(item, "MAX") == 0)
+         lpx_set_obj_dir(lp, LPX_MAX);
+      else
+      {  xprintf("%s:%d: invalid objective sense\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      if (read_int(dsa, &m)) goto fail;
+      if (m < 0)
+      {  xprintf("%s:%d: invalid number of rows\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      if (m > 0) lpx_add_rows(lp, m);
+      if (read_int(dsa, &n)) goto fail;
+      if (n < 0)
+      {  xprintf("%s:%d: invalid number of columns\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      if (n > 0) lpx_add_cols(lp, n);
+      if (read_int(dsa, &nnz)) goto fail;
+      if (nnz < 0)
+      {  xprintf("%s:%d: invalid number of non-zeros\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      xprintf("lpx_read_prob: %d row%s, %d column%s, %d non-zero%s\n",
+         m, m == 1 ? "" : "s", n, n == 1 ? "" : "s", nnz, nnz == 1 ?
+         "" : "s");
+      ia = xcalloc(1+nnz, sizeof(int));
+      ja = xcalloc(1+nnz, sizeof(int));
+      ar = xcalloc(1+nnz, sizeof(double));
+      loc = 0;
+      if (skip_until_nl(dsa)) goto fail;
+loop: /* skip optional comments */
+      while (dsa->c == '*')
+         if (skip_comment(dsa)) goto fail;
+      /* determine line type */
+      if (read_item(dsa, item)) goto fail;
+      /* scan line data */
+      if (strcmp(item, "N") == 0)
+      {  /* scan problem name */
+         if (read_item(dsa, item)) goto fail;
+         lpx_set_prob_name(lp, item);
+         if (skip_until_nl(dsa)) goto fail;
+      }
+      else if (strcmp(item, "R") == 0)
+      {  /* scan row attributes */
+         if (read_int(dsa, &i)) goto fail;
+         if (!(1 <= i && i <= m))
+         {  xprintf("%s:%d: row number out of range\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (read_item(dsa, item)) goto fail;
+         if (strcmp(item, "F") == 0)
+            lpx_set_row_bnds(lp, i, LPX_FR, 0.0, 0.0);
+         else if (strcmp(item, "L") == 0)
+         {  if (read_num(dsa, &lb)) goto fail;
+            lpx_set_row_bnds(lp, i, LPX_LO, lb, 0.0);
+         }
+         else if (strcmp(item, "U") == 0)
+         {  if (read_num(dsa, &ub)) goto fail;
+            lpx_set_row_bnds(lp, i, LPX_UP, 0.0, ub);
+         }
+         else if (strcmp(item, "D") == 0)
+         {  if (read_num(dsa, &lb)) goto fail;
+            if (read_num(dsa, &ub)) goto fail;
+            lpx_set_row_bnds(lp, i, LPX_DB, lb, ub);
+         }
+         else if (strcmp(item, "S") == 0)
+         {  if (read_num(dsa, &lb)) goto fail;
+            lpx_set_row_bnds(lp, i, LPX_FX, lb, 0.0);
+         }
+         else
+         {  xprintf("%s:%d: unknown row type\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (skip_until_nl(dsa)) goto fail;
+      }
+      else if (strcmp(item, "C") == 0)
+      {  /* scan column attributes */
+         if (read_int(dsa, &j)) goto fail;
+         if (!(1 <= j && j <= n))
+         {  xprintf("%s:%d: column number out of range\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (lpx_get_class(lp) == LPX_MIP)
+         {  if (read_item(dsa, item)) goto fail;
+            if (strcmp(item, "C") == 0)
+               lpx_set_col_kind(lp, j, LPX_CV);
+            else if (strcmp(item, "I") == 0)
+               lpx_set_col_kind(lp, j, LPX_IV);
+            else
+            {  xprintf("%s:%d: unknown column kind\n",
+                  dsa->fname, dsa->count);
+               goto fail;
+            }
+         }
+         if (read_item(dsa, item)) goto fail;
+         if (strcmp(item, "F") == 0)
+            lpx_set_col_bnds(lp, j, LPX_FR, 0.0, 0.0);
+         else if (strcmp(item, "L") == 0)
+         {  if (read_num(dsa, &lb)) goto fail;
+            lpx_set_col_bnds(lp, j, LPX_LO, lb, 0.0);
+         }
+         else if (strcmp(item, "U") == 0)
+         {  if (read_num(dsa, &ub)) goto fail;
+            lpx_set_col_bnds(lp, j, LPX_UP, 0.0, ub);
+         }
+         else if (strcmp(item, "D") == 0)
+         {  if (read_num(dsa, &lb)) goto fail;
+            if (read_num(dsa, &ub)) goto fail;
+            lpx_set_col_bnds(lp, j, LPX_DB, lb, ub);
+         }
+         else if (strcmp(item, "S") == 0)
+         {  if (read_num(dsa, &lb)) goto fail;
+            lpx_set_col_bnds(lp, j, LPX_FX, lb, 0.0);
+         }
+         else
+         {  xprintf("%s:%d: unknown column type\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (skip_until_nl(dsa)) goto fail;
+      }
+      else if (strcmp(item, "A") == 0)
+      {  /* constraint or objective coefficient or constant term */
+         if (read_int(dsa, &i)) goto fail;
+         if (!(0 <= i && i <= m))
+         {  xprintf("%s:%d: row number out of range\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (read_int(dsa, &j)) goto fail;
+         if (!((i == 0 ? 0 : 1) <= j && j <= n))
+         {  xprintf("%s:%d: column number out of range\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (read_num(dsa, &coef)) goto fail;
+         if (i == 0)
+            lpx_set_obj_coef(lp, j, coef);
+         else
+         {  loc++;
+            if (loc > nnz)
+            {  xprintf("%s:%d: too many constraint coefficients\n",
+                  dsa->fname, dsa->count);
+               goto fail;
+            }
+            ia[loc] = i, ja[loc] = j, ar[loc] = coef;
+         }
+         if (skip_until_nl(dsa)) goto fail;
+      }
+      else if (strcmp(item, "I") == 0)
+      {  /* row or objective function name */
+         if (read_int(dsa, &i)) goto fail;
+         if (!(0 <= i && i <= m))
+         {  xprintf("%s:%d: row number out of range\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (read_item(dsa, item)) goto fail;
+         if (i == 0)
+            lpx_set_obj_name(lp, item);
+         else
+            lpx_set_row_name(lp, i, item);
+         if (skip_until_nl(dsa)) goto fail;
+      }
+      else if (strcmp(item, "J") == 0)
+      {  /* column name */
+         if (read_int(dsa, &j)) goto fail;
+         if (!(1 <= j && j <= n))
+         {  xprintf("%s:%d: column number out of range\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (read_item(dsa, item)) goto fail;
+         lpx_set_col_name(lp, j, item);
+         if (skip_until_nl(dsa)) goto fail;
+      }
+      else if (strcmp(item, "E") == 0)
+      {  if (read_item(dsa, item)) goto fail;
+         if (strcmp(item, "N") != 0)
+boo:     {  xprintf("%s:%d: end line invalid or incomplete\n",
+               dsa->fname, dsa->count);
+            goto fail;
+         }
+         if (read_item(dsa, item)) goto fail;
+         if (strcmp(item, "D") != 0) goto boo;
+         if (skip_until_nl(dsa)) goto fail;
+         goto fini;
+      }
+      else
+      {  xprintf("%s:%d: unknown line type\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      goto loop;
+fini: /* load constraint matrix */
+      if (loc < nnz)
+      {  xprintf("%s:%d: too few constraint coefficients\n",
+            dsa->fname, dsa->count);
+         goto fail;
+      }
+      xassert(loc == nnz);
+      lpx_load_matrix(lp, nnz, ia, ja, ar);
+      xfree(ia);
+      xfree(ja);
+      xfree(ar);
+      xprintf("lpx_read_prob: %d lines were read\n", dsa->count-1);
+      fclose(dsa->fp);
+      return lp;
+fail: if (dsa->fp != NULL) fclose(dsa->fp);
+      if (lp != NULL) lpx_delete_prob(lp);
+      if (ia != NULL) xfree(ia);
+      if (ja != NULL) xfree(ja);
+      if (ar != NULL) xfree(ar);
+      return NULL;
+}
+
+/*----------------------------------------------------------------------
+-- lpx_write_prob - write problem data in GNU LP format.
+--
+-- *Synopsis*
+--
+-- #include "glplpx.h"
+-- int lpx_write_prob(LPX *lp, char *fname);
+--
+-- *Description*
+--
+-- The routine lpx_write_prob writes data from a problem object, which
+-- the parameter lp points to, to an output text file, whose name is the
+-- character string fname, in GNU LP format.
+--
+-- *Returns*
+--
+-- If the operation is successful, the routine returns zero. Otherwise
+-- the routine prints an error message and returns non-zero. */
+
+static void write_name(FILE *fp, char *name)
+{     int k;
+      xassert(name != NULL);
+      for (k = 0; name[k] != '\0'; k++)
+      {  if (isgraph((unsigned char)name[k]))
+            fprintf(fp, "%c", name[k]);
+         else
+            fprintf(fp, "_");
+      }
+      return;
+}
+
+int lpx_write_prob(LPX *lp, char *fname)
+{     FILE *fp;
+      int m, n, klass, dir, i, j, t, type, len, *ind;
+      double lb, ub, coef, *val;
+      const char *name;
+      xprintf("lpx_write_prob: writing problem data to `%s'...\n",
+         fname);
       fp = fopen(fname, "w");
       if (fp == NULL)
-      {  xprintf("lpx_print_sens_bnds: can't create `%s' - %s\n",
+      {  xprintf("lpx_write_prob: unable to create `%s' - %s\n",
             fname, strerror(errno));
          goto fail;
       }
+      /* problem line */
+      m = lpx_get_num_rows(lp);
+      n = lpx_get_num_cols(lp);
+      klass = lpx_get_class(lp);
+      dir = lpx_get_obj_dir(lp);
+      fprintf(fp, "P %s %s %d %d %d\n",
+         klass == LPX_LP ? "LP" : klass == LPX_MIP ? "MIP" : "???",
+         dir == LPX_MIN ? "MIN" : dir == LPX_MAX ? "MAX" : "???",
+         m, n, lpx_get_num_nz(lp));
       /* problem name */
-      {  const char *name;
-         name = lpx_get_prob_name(lp);
-         if (name == NULL) name = "";
-         fprintf(fp, "%-12s%s\n", "Problem:", name);
+      name = (void *)lpx_get_prob_name(lp);
+      if (name != NULL)
+      {  fprintf(fp, "N ");
+         write_name(fp, (void *)name);
+         fprintf(fp, "\n");
       }
-      /* number of rows (auxiliary variables) */
-      {  int nr;
-         nr = lpx_get_num_rows(lp);
-         fprintf(fp, "%-12s%d\n", "Rows:", nr);
-      }
-      /* number of columns (structural variables) */
-      {  int nc;
-         nc = lpx_get_num_cols(lp);
-         fprintf(fp, "%-12s%d\n", "Columns:", nc);
-      }
-      /* number of non-zeros (constraint coefficients) */
-      {  int nz;
-         nz = lpx_get_num_nz(lp);
-         fprintf(fp, "%-12s%d\n", "Non-zeros:", nz);
-      }
-      /* solution status */
-      {  int status;
-         status = lpx_get_status(lp);
-         fprintf(fp, "%-12s%s\n", "Status:",
-            status == LPX_OPT    ? "OPTIMAL" :
-            status == LPX_FEAS   ? "FEASIBLE" :
-            status == LPX_INFEAS ? "INFEASIBLE (INTERMEDIATE)" :
-            status == LPX_NOFEAS ? "INFEASIBLE (FINAL)" :
-            status == LPX_UNBND  ? "UNBOUNDED" :
-            status == LPX_UNDEF  ? "UNDEFINED" : "???");
-      }
-      /* explanation/warning */
-      {  fprintf(fp, "\nExplanation:  This file presents amounts by whi"
-            "ch objective coefficients,\n");
-         fprintf(fp, "constraint bounds, and variable bounds may be cha"
-            "nged in the original problem\n");
-         fprintf(fp, "while the optimal basis remains the same.  Note t"
-            "hat the optimal solution\n");
-         fprintf(fp, "and objective value may change even though the ba"
-            "sis remains the same.\n");
-         fprintf(fp, "These bounds assume that all parameters remain fi"
-            "xed except the one in\n");
-         fprintf(fp, "question.  If more than one parameter is changed,"
-            " it is possible for the\n");
-         fprintf(fp, "optimal basis to change even though each paramete"
-            "r stays within its bounds.\n");
-         fprintf(fp, "For more details, consult a text on linear progra"
-            "mming.\n");
-      }
-      /* Sensitivity ranges if solution was optimal */
-      {  int status;
-         status = lpx_get_status(lp);
-         if (status == LPX_OPT)
-         {  int i,j,k,m,n;
-            int dir;
-            double max_inc, max_dec;
-            int *index;
-            double *val;
-            fprintf(fp, "\nObjective Coefficient Analysis\n");
-            fprintf(fp, "   No.  Column name St    Value       Max incr"
-               "ease  Max decrease\n");
-            fprintf(fp, "------ ------------ -- ------------- ---------"
-               "---- ------------- \n");
-            n = lpx_get_num_cols(lp);
-            m = lpx_get_num_rows(lp);
-            dir = lpx_get_obj_dir(lp);
-            /* allocate memory for index and val arrays */
-            index = xcalloc(1+n+m, sizeof(int));
-            val   = xcalloc(1+n+m, sizeof(double));
-            for (j = 1; j <= n; j++)
-            {  const char *name;
-               int typx, tagx;
-               double lb, ub, vx, dx;
-               name = lpx_get_col_name(lp, j);
-               if (name == NULL) name = "";
-               lpx_get_col_bnds(lp, j, &typx, &lb, &ub);
-#if 0 /* 21/XII-2003 by mao */
-               round = lp->round, lp->round = 1;
-               lpx_get_col_info(lp, j, &tagx, &vx, &dx);
-               lp->round = round;
-#else
-               round = lpx_get_int_parm(lp, LPX_K_ROUND);
-               lpx_set_int_parm(lp, LPX_K_ROUND, 1);
-               lpx_get_col_info(lp, j, &tagx, &vx, &dx);
-               lpx_set_int_parm(lp, LPX_K_ROUND, round);
-#endif
-               /* row/column ordinal number */
-               fprintf(fp, "%6d ", j);
-               /* row column/name */
-               if (strlen(name) <= 12)
-                  fprintf(fp, "%-12s ", name);
-               else
-                  fprintf(fp, "%s\n%20s", name, "");
-               /* row/column status */
-               fprintf(fp, "%s ",
-                  tagx == LPX_BS ? "B " :
-                  tagx == LPX_NL ? "NL" :
-                  tagx == LPX_NU ? "NU" :
-                  tagx == LPX_NF ? "NF" :
-                  tagx == LPX_NS ? "NS" : "??");
-               /* objective coefficient */
-               fprintf(fp, "%13.6g ", lpx_get_obj_coef(lp, j));
-               if (tagx == LPX_NL)
-               {  if (dir==LPX_MIN)
-                  {  /* reduced cost must be positive */
-                     max_inc = DBL_MAX; /* really represents infinity */
-                     max_dec = dx;
-                  }
-                  else
-                  {  /* reduced cost must be negative */
-                     max_inc = -dx;
-                     max_dec = DBL_MAX; /* means infinity */
-                  }
-               }
-               if (tagx == LPX_NU)
-               {  if (dir==LPX_MIN)
-                  {  /* reduced cost must be negative */
-                     max_inc = -dx;
-                     max_dec = DBL_MAX;
-                  }
-                  else
-                  {  max_inc = DBL_MAX;
-                     max_dec = dx;
-                  }
-               }
-               if (tagx == LPX_NF)
-               {  /* can't change nonbasic free variables' cost */
-                  max_inc = 0.0;
-                  max_dec = 0.0;
-               }
-               if (tagx == LPX_NS)
-               {  /* doesn't matter what happens to the cost */
-                  max_inc = DBL_MAX;
-                  max_dec = DBL_MAX;
-               }
-               if (tagx == LPX_BS)
-               {  int len;
-                  /* We need to see how this objective coefficient
-                     affects reduced costs of other variables */
-                  len = lpx_eval_tab_row(lp, m+j, index, val);
-                  max_inc = DBL_MAX;
-                  max_dec = DBL_MAX;
-                  for (i = 1; i <= len; i++)
-                  {  /*int stat;*/
-                     int tagx2;
-                     double vx2, dx2;
-                     double delta;
-                     if (index[i]>m)
-                        lpx_get_col_info(lp, index[i]-m, &tagx2, &vx2,
-                           &dx2);
-                     else
-                        lpx_get_row_info(lp, index[i], &tagx2, &vx2,
-                           &dx2);
-                     if (tagx2 == LPX_NL)
-                     {  if (val[i] != 0.0)
-                        {  delta = dx2 / val[i];
-                           if (delta < 0 && -delta < max_inc)
-                              max_inc = -delta;
-                           else if (delta >0 && delta < max_dec)
-                              max_dec = delta;
-                        }
-                     }
-                     if (tagx2 == LPX_NU)
-                     {  if (val[i] != 0.0)
-                        {  delta = dx2 / val[i];
-                           if (delta < 0 && -delta < max_inc)
-                              max_inc = -delta;
-                           else if (delta > 0 && delta < max_dec)
-                              max_dec = delta;
-                        }
-                     }
-                     if (tagx2 == LPX_NF)
-                     {  if (val[i] != 0.0)
-                        {  max_inc = 0.0;
-                           max_dec = 0.0;
-                        }
-                     }
-                  }
-               }
-               if (max_inc == -0.0) max_inc = 0.0;
-               if (max_dec == -0.0) max_dec = 0.0;
-               if (max_inc == DBL_MAX)
-                  fprintf(fp, "%13s ", "infinity");
-               else if (max_inc < 1.0e-12 && max_inc > 0)
-                  fprintf(fp, "%13s ", "< eps");
-               else
-                  fprintf(fp, "%13.6g ", max_inc);
-               if (max_dec == DBL_MAX)
-                  fprintf(fp, "%13s ", "infinity");
-               else if (max_dec < 1.0e-12 && max_dec > 0)
-                  fprintf(fp, "%13s ", "< eps");
-               else
-                  fprintf(fp, "%13.6g ", max_dec);
-               fprintf(fp, "\n");
-            }
-            for (what = 1; what <= 2; what++)
-            {  int ij, mn;
-               fprintf(fp, "\n");
-               fprintf(fp, "%s Analysis\n",
-                  what==1? "Constraint Bounds":"Variable Bounds");
-               fprintf(fp, "   No. %12s St    Value       Max increase "
-                  " Max decrease\n",
-                  what==1 ? " Row name":"Column name");
-               fprintf(fp, "------ ------------ -- ------------- ------"
-                  "------- ------------- \n");
-               mn = what==1 ? m : n;
-               for (ij = 1; ij <= mn; ij++)
-               {  const char *name;
-                  int typx, tagx;
-                  double lb, ub, vx, dx;
-                  if (what==1)
-                     name = lpx_get_row_name(lp, ij);
-                  else
-                     name = lpx_get_col_name(lp, ij);
-                  if (name == NULL) name = "";
-#if 0 /* 21/XII-2003 by mao */
-                  if (what==1)
-                  {  lpx_get_row_bnds(lp, ij, &typx, &lb, &ub);
-                     round = lp->round, lp->round = 1;
-                     lpx_get_row_info(lp, ij, &tagx, &vx, &dx);
-                     lp->round = round;
-                  }
-                  else
-                  {  lpx_get_col_bnds(lp, ij, &typx, &lb, &ub);
-                     round = lp->round, lp->round = 1;
-                     lpx_get_col_info(lp, ij, &tagx, &vx, &dx);
-                     lp->round = round;
-                  }
-#else
-                  round = lpx_get_int_parm(lp, LPX_K_ROUND);
-                  lpx_set_int_parm(lp, LPX_K_ROUND, 1);
-                  if (what==1)
-                  {  lpx_get_row_bnds(lp, ij, &typx, &lb, &ub);
-                     lpx_get_row_info(lp, ij, &tagx, &vx, &dx);
-                  }
-                  else
-                  {  lpx_get_col_bnds(lp, ij, &typx, &lb, &ub);
-                     lpx_get_col_info(lp, ij, &tagx, &vx, &dx);
-                  }
-                  lpx_set_int_parm(lp, LPX_K_ROUND, round);
-#endif
-                  /* row/column ordinal number */
-                  fprintf(fp, "%6d ", ij);
-                  /* row column/name */
-                  if (strlen(name) <= 12)
-                     fprintf(fp, "%-12s ", name);
-                  else
-                     fprintf(fp, "%s\n%20s", name, "");
-                  /* row/column status */
-                  fprintf(fp, "%s ",
-                     tagx == LPX_BS ? "B " :
-                     tagx == LPX_NL ? "NL" :
-                     tagx == LPX_NU ? "NU" :
-                     tagx == LPX_NF ? "NF" :
-                     tagx == LPX_NS ? "NS" : "??");
-                  fprintf(fp, "\n");
-                  /* first check lower bound */
-                  if (typx == LPX_LO || typx == LPX_DB ||
-                      typx == LPX_FX)
-                  {  int at_lower;
-                     at_lower = 0;
-                     if (tagx == LPX_BS || tagx == LPX_NU)
-                     {  max_inc = vx - lb;
-                        max_dec = DBL_MAX;
-                     }
-                     if (tagx == LPX_NS)
-                     {  max_inc = 0.0;
-                        max_dec = 0.0;
-                        if (dir == LPX_MIN && dx > 0) at_lower = 1;
-                        if (dir == LPX_MAX && dx < 0) at_lower = 1;
-                     }
-                     if (tagx == LPX_NL || at_lower == 1)
-                     {  int len;
-                        /* we have to see how it affects basic
-                           variables */
-                        len = lpx_eval_tab_col(lp, what==1?ij:ij+m,
-                           index, val);
-                        k = lpx_prim_ratio_test(lp, len, index, val, 1,
-                           10e-7);
-                        max_inc = DBL_MAX;
-                        if (k != 0)
-                        {  /*int stat;*/
-                           int tagx2, typx2;
-                           double vx2, dx2, lb2, ub2;
-                           /*double delta;*/
-                           double alpha;
-                           int l;
-                           for (l = 1; l <= len; l++)
-                              if (index[l] == k) alpha = val[l];
-                           if (k>m)
-                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           else
-                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           /* Check which direction;
-                              remember this is upper bound */
-                           if (alpha > 0)
-                              max_inc = (ub2 - vx2)/ alpha;
-                           else
-                              max_inc = (lb2 - vx2)/ alpha;
-                        }
-                        /* now check lower bound */
-                        k = lpx_prim_ratio_test(lp, len, index, val, -1,
-                           10e-7);
-                        max_dec = DBL_MAX;
-                        if (k != 0)
-                        {  /*int stat;*/
-                           int tagx2, typx2;
-                           double vx2, dx2, lb2, ub2;
-                           /*double delta;*/
-                           double alpha;
-                           int l;
-                           for (l = 1; l <= len; l++)
-                              if (index[l] == k) alpha = val[l];
-                           if (k>m)
-                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           else
-                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           /* Check which direction;
-                              remember this is lower bound */
-                           if (alpha > 0)
-                              max_dec = (vx2 - lb2)/ alpha;
-                           else
-                              max_dec = (vx2 - ub2)/ alpha;
-                        }
-                     }
-                     /* bound */
-                     if (typx == LPX_DB || typx == LPX_FX)
-                     {  if (max_inc > ub - lb)
-                           max_inc = ub - lb;
-                     }
-                     fprintf(fp, "         LOWER         %13.6g ", lb);
-                     if (max_inc == -0.0) max_inc = 0.0;
-                     if (max_dec == -0.0) max_dec = 0.0;
-                     if (max_inc == DBL_MAX)
-                        fprintf(fp, "%13s ", "infinity");
-                     else if (max_inc < 1.0e-12 && max_inc > 0)
-                        fprintf(fp, "%13s ", "< eps");
-                     else
-                        fprintf(fp, "%13.6g ", max_inc);
-                     if (max_dec == DBL_MAX)
-                        fprintf(fp, "%13s ", "infinity");
-                     else if (max_dec < 1.0e-12 && max_dec > 0)
-                        fprintf(fp, "%13s ", "< eps");
-                     else
-                        fprintf(fp, "%13.6g ", max_dec);
-                     fprintf(fp, "\n");
-                  }
-                  /* now check upper bound */
-                  if (typx == LPX_UP || typx == LPX_DB ||
-                     typx == LPX_FX)
-                  {  int at_upper;
-                     at_upper = 0;
-                     if (tagx == LPX_BS || tagx == LPX_NL)
-                     {  max_inc = DBL_MAX;
-                        max_dec = ub - vx;
-                     }
-                     if (tagx == LPX_NS)
-                     {  max_inc = 0.0;
-                        max_dec = 0.0;
-                        if (dir == LPX_MIN && dx < 0) at_upper = 1;
-                        if (dir == LPX_MAX && dx > 0) at_upper = 1;
-                     }
-                     if (tagx == LPX_NU || at_upper == 1)
-                     {  int len;
-                        /* we have to see how it affects basic
-                           variables */
-                        len = lpx_eval_tab_col(lp, what==1?ij:ij+m,
-                           index, val);
-                        k = lpx_prim_ratio_test(lp, len, index, val, 1,
-                           10e-7);
-                        max_inc = DBL_MAX;
-                        if (k != 0)
-                        {  /*int stat;*/
-                           int tagx2, typx2;
-                           double vx2, dx2, lb2, ub2;
-                           /*double delta;*/
-                           double alpha;
-                           int l;
-                           for (l = 1; l <= len; l++)
-                              if (index[l] == k) alpha = val[l];
-                           if (k>m)
-                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           else
-                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           /* Check which direction;
-                              remember this is upper bound */
-                           if (alpha > 0)
-                              max_inc = (ub2 - vx2)/ alpha;
-                           else
-                              max_inc = (lb2 - vx2)/ alpha;
-                        }
-                        /* now check lower bound */
-                        k = lpx_prim_ratio_test(lp, len, index, val, -1,
-                           10e-7);
-                        max_dec = DBL_MAX;
-                        if (k != 0)
-                        {  /*int stat;*/
-                           int tagx2, typx2;
-                           double vx2, dx2, lb2, ub2;
-                           /*double delta;*/
-                           double alpha;
-                           int l;
-                           for (l = 1; l <= len; l++)
-                              if (index[l] == k) alpha = val[l];
-                           if (k>m)
-                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           else
-                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
-                                 &dx2);
-                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
-                                 &ub2);
-                           }
-                           /* Check which direction;
-                              remember this is lower bound */
-                           if (alpha > 0)
-                              max_dec = (vx2 - lb2)/ alpha;
-                           else
-                              max_dec = (vx2 - ub2)/ alpha;
-                        }
-                     }
-                     if (typx == LPX_DB || typx == LPX_FX)
-                     {  if (max_dec > ub - lb)
-                           max_dec = ub - lb;
-                     }
-                     /* bound */
-                     fprintf(fp, "         UPPER         %13.6g ", ub);
-                     if (max_inc == -0.0) max_inc = 0.0;
-                     if (max_dec == -0.0) max_dec = 0.0;
-                     if (max_inc == DBL_MAX)
-                        fprintf(fp, "%13s ", "infinity");
-                     else if (max_inc < 1.0e-12 && max_inc > 0)
-                        fprintf(fp, "%13s ", "< eps");
-                     else
-                        fprintf(fp, "%13.6g ", max_inc);
-                     if (max_dec == DBL_MAX)
-                        fprintf(fp, "%13s ", "infinity");
-                     else if (max_dec < 1.0e-12 && max_dec > 0)
-                        fprintf(fp, "%13s ", "< eps");
-                     else
-                        fprintf(fp, "%13.6g ", max_dec);
-                     fprintf(fp, "\n");
-                  }
-               }
-            }
-            /* free the memory we used */
-            xfree(index);
-            xfree(val);
+      /* rows (constraints) */
+      for (i = 1; i <= m; i++)
+      {  fprintf(fp, "R %d ", i);
+         type = lpx_get_row_type(lp, i);
+         lb = lpx_get_row_lb(lp, i);
+         ub = lpx_get_row_ub(lp, i);
+         switch (type)
+         {  case LPX_FR:
+               fprintf(fp, "F"); break;
+            case LPX_LO:
+               fprintf(fp, "L %.*g", DBL_DIG, lb); break;
+            case LPX_UP:
+               fprintf(fp, "U %.*g", DBL_DIG, ub); break;
+            case LPX_DB:
+               fprintf(fp, "D %.*g %.*g", DBL_DIG, lb, DBL_DIG, ub);
+               break;
+            case LPX_FX:
+               fprintf(fp, "S %.*g", DBL_DIG, lb); break;
+            default:
+               xassert(type != type);
          }
-         else fprintf(fp, "No range information since solution is not o"
-            "ptimal.\n");
+         fprintf(fp, "\n");
       }
-      fprintf(fp, "\n");
-      fprintf(fp, "End of output\n");
+      /* columns (variables) */
+      for (j = 1; j <= n; j++)
+      {  fprintf(fp, "C %d ", j);
+         type = lpx_get_col_type(lp, j);
+         lb = lpx_get_col_lb(lp, j);
+         ub = lpx_get_col_ub(lp, j);
+         if (klass == LPX_MIP)
+         {  switch (lpx_get_col_kind(lp, j))
+            {  case LPX_CV:
+                  fprintf(fp, "C "); break;
+               case LPX_IV:
+                  fprintf(fp, "I "); break;
+               default:
+                  xassert(lp != lp);
+            }
+         }
+         switch (type)
+         {  case LPX_FR:
+               fprintf(fp, "F"); break;
+            case LPX_LO:
+               fprintf(fp, "L %.*g", DBL_DIG, lb); break;
+            case LPX_UP:
+               fprintf(fp, "U %.*g", DBL_DIG, ub); break;
+            case LPX_DB:
+               fprintf(fp, "D %.*g %.*g", DBL_DIG, lb, DBL_DIG, ub);
+               break;
+            case LPX_FX:
+               fprintf(fp, "S %.*g", DBL_DIG, lb); break;
+            default:
+               xassert(type != type);
+         }
+         fprintf(fp, "\n");
+      }
+      /* objective coefficients */
+      for (j = 0; j <= n; j++)
+      {  coef = lpx_get_obj_coef(lp, j);
+         if (coef != 0.0)
+            fprintf(fp, "A 0 %d %.*g\n", j, DBL_DIG, coef);
+      }
+      /* constraint matrix */
+      ind = xcalloc(1+n, sizeof(int));
+      val = xcalloc(1+n, sizeof(double));
+      for (i = 1; i <= m; i++)
+      {  len = lpx_get_mat_row(lp, i, ind, val);
+         for (t = 1; t <= len; t++)
+            fprintf(fp, "A %d %d %.*g\n", i, ind[t], DBL_DIG, val[t]);
+      }
+      xfree(ind);
+      xfree(val);
+      /* objective and row names */
+      for (i = 0; i <= m; i++)
+      {  if (i == 0)
+            name = (void *)lpx_get_obj_name(lp);
+         else
+            name = (void *)lpx_get_row_name(lp, i);
+         if (name != NULL)
+         {  fprintf(fp, "I %d ", i);
+            write_name(fp, (void *)name);
+            fprintf(fp, "\n");
+         }
+      }
+      /* column names */
+      for (j = 1; j <= n; j++)
+      {  name = lpx_get_col_name(lp, j);
+         if (name != NULL)
+         {  fprintf(fp, "J %d ", j);
+            write_name(fp, (void *)name);
+            fprintf(fp, "\n");
+         }
+      }
+      /* end line */
+      fprintf(fp, "E N D\n");
       fflush(fp);
       if (ferror(fp))
-      {  xprintf("lpx_print_sens_bnds: can't write to `%s' - %s\n",
+      {  xprintf("lpx_write_prob: write error on `%s' - %s\n",
             fname, strerror(errno));
          goto fail;
       }

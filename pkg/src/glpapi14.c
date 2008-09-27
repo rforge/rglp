@@ -24,7 +24,6 @@
 #define _GLPSTD_ERRNO
 #define _GLPSTD_STDIO
 #include "glpapi.h"
-#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -1071,7 +1070,7 @@ int glp_write_lp(glp_prob *lp, const void *parm, const char *fname)
       ncols = lpx_get_num_cols(lp);
       /* the problem should contain at least one row and one column */
       if (!(nrows > 0 && ncols > 0))
-         xfault("glp_write_lp: problem has no rows/columns\n");
+         xerror("glp_write_lp: problem has no rows/columns\n");
       /* write problem name */
       {  const char *name = lpx_get_prob_name(lp);
          if (name == NULL) name = "Unknown";

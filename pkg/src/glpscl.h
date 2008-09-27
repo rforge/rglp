@@ -1,4 +1,4 @@
-/* glpspx.h (core simplex solvers) */
+/* glpscl.h (automatic problem scaling) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
@@ -21,18 +21,14 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
-#ifndef _GLPSPX_H
-#define _GLPSPX_H
+#ifndef _GLPSCL_H
+#define _GLPSCL_H
 
 #include "glpapi.h"
 
-#define spx_primal _glp_spx_primal
-int spx_primal(glp_prob *lp, const glp_smcp *parm);
-/* core LP solver based on the primal simplex method */
-
-#define spx_dual _glp_spx_dual
-int spx_dual(glp_prob *lp, const glp_smcp *parm);
-/* core LP solver based on the dual simplex method */
+#define scale_prob _glp_scale_prob
+void scale_prob(glp_prob *lp, int flags);
+/* scale problem data */
 
 #endif
 

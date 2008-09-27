@@ -1,4 +1,4 @@
-/* glpspx.h (core simplex solvers) */
+/* glpini.h (initial LP basis) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
@@ -21,18 +21,18 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
-#ifndef _GLPSPX_H
-#define _GLPSPX_H
+#ifndef _GLPINI_H
+#define _GLPINI_H
 
 #include "glpapi.h"
 
-#define spx_primal _glp_spx_primal
-int spx_primal(glp_prob *lp, const glp_smcp *parm);
-/* core LP solver based on the primal simplex method */
+#define adv_basis _glp_adv_basis
+void adv_basis(glp_prob *lp);
+/* construct advanced initial LP basis */
 
-#define spx_dual _glp_spx_dual
-int spx_dual(glp_prob *lp, const glp_smcp *parm);
-/* core LP solver based on the dual simplex method */
+#define cpx_basis _glp_cpx_basis
+void cpx_basis(glp_prob *lp);
+/* construct Bixby's initial LP basis */
 
 #endif
 

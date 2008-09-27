@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpapi.h"
-#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -86,7 +85,7 @@ double glp_ipt_row_prim(glp_prob *lp, int i)
 {     struct LPXCPS *cps = lp->cps;
       double pval;
       if (!(1 <= i && i <= lp->m))
-         xfault("glp_ipt_row_prim: i = %d; row number out of range\n",
+         xerror("glp_ipt_row_prim: i = %d; row number out of range\n",
             i);
       pval = lp->row[i]->pval;
       if (cps->round && fabs(pval) < 1e-9) pval = 0.0;
@@ -111,7 +110,7 @@ double glp_ipt_row_dual(glp_prob *lp, int i)
 {     struct LPXCPS *cps = lp->cps;
       double dval;
       if (!(1 <= i && i <= lp->m))
-         xfault("glp_ipt_row_dual: i = %d; row number out of range\n",
+         xerror("glp_ipt_row_dual: i = %d; row number out of range\n",
             i);
       dval = lp->row[i]->dval;
       if (cps->round && fabs(dval) < 1e-9) dval = 0.0;
@@ -136,7 +135,7 @@ double glp_ipt_col_prim(glp_prob *lp, int j)
 {     struct LPXCPS *cps = lp->cps;
       double pval;
       if (!(1 <= j && j <= lp->n))
-         xfault("glp_ipt_col_prim: j = %d; column number out of range\n"
+         xerror("glp_ipt_col_prim: j = %d; column number out of range\n"
             , j);
       pval = lp->col[j]->pval;
       if (cps->round && fabs(pval) < 1e-9) pval = 0.0;
@@ -162,7 +161,7 @@ double glp_ipt_col_dual(glp_prob *lp, int j)
 {     struct LPXCPS *cps = lp->cps;
       double dval;
       if (!(1 <= j && j <= lp->n))
-         xfault("glp_ipt_col_dual: j = %d; column number out of range\n"
+         xerror("glp_ipt_col_dual: j = %d; column number out of range\n"
             , j);
       dval = lp->col[j]->dval;
       if (cps->round && fabs(dval) < 1e-9) dval = 0.0;

@@ -286,9 +286,8 @@ struct LPXCPS
          3 - geometric mean scaling, then equilibration scaling */
       int dual;
       /* dual simplex option:
-         0 - do not use the dual simplex
-         1 - if the initial basic solution being primal infeasible is
-             dual feasible, use the dual simplex */
+         0 - use primal simplex
+         1 - use dual simplex */
       int price;
       /* pricing option (for both primal and dual simplex):
          0 - textbook pricing

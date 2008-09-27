@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpapi.h"
-#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -66,7 +65,7 @@ void glp_term_out(int flag)
 {     LIBENV *env = lib_link_env();
       env->term_out = GLP_ON;
       if (!(flag == GLP_ON || flag == GLP_OFF))
-         xfault("glp_term_out: flag = %d; invalid value\n", flag);
+         xerror("glp_term_out: flag = %d; invalid value\n", flag);
       env->term_out = flag;
       return;
 }
@@ -238,7 +237,7 @@ void glp_mem_usage(int *count, int *cpeak, glp_long *total,
 
 void glp_mem_limit(int limit)
 {     if (limit < 0)
-         xfault("glp_mem_limit: limit = %d; invalid parameter\n",
+         xerror("glp_mem_limit: limit = %d; invalid parameter\n",
             limit);
       lib_mem_limit(xlmul(xlset(limit), xlset(1 << 20)));
       return;

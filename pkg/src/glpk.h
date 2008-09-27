@@ -30,7 +30,7 @@ extern "C" {
 
 /* library version numbers: */
 #define GLP_MAJOR_VERSION  4
-#define GLP_MINOR_VERSION  30
+#define GLP_MINOR_VERSION  31
 
 #ifndef _GLP_PROB
 #define _GLP_PROB
@@ -60,6 +60,13 @@ typedef struct { double _prob; } glp_prob;
 #define GLP_NU          3  /* non-basic variable on upper bound */
 #define GLP_NF          4  /* non-basic free variable */
 #define GLP_NS          5  /* non-basic fixed variable */
+
+/* scaling options: */
+#define GLP_SF_GM    0x01  /* perform geometric mean scaling */
+#define GLP_SF_EQ    0x10  /* perform equilibration scaling */
+#define GLP_SF_2N    0x20  /* round scale factors to power of two */
+#define GLP_SF_SKIP  0x40  /* skip scaling if problem is well scaled */
+#define GLP_SF_AUTO  0x80  /* choose scaling options automatically */
 
 /* solution status: */
 #define GLP_UNDEF       1  /* solution is undefined */
@@ -107,7 +114,8 @@ typedef struct
 #define GLP_MSG_DBG     4  /* debug output */
       int meth;            /* simplex method option: */
 #define GLP_PRIMAL      1  /* use primal simplex */
-#define GLP_DUALP       2  /* use dual simplex, if possible */
+#define GLP_DUALP       2  /* use dual; if it fails, use primal */
+#define GLP_DUAL        3  /* use dual simplex */
       int pricing;         /* pricing technique: */
 #define GLP_PT_STD   0x11  /* standard (Dantzig rule) */
 #define GLP_PT_PSE   0x22  /* projected steepest edge */
@@ -339,6 +347,9 @@ double glp_get_rii(glp_prob *lp, int i);
 double glp_get_sjj(glp_prob *lp, int j);
 /* retrieve column scale factor */
 
+void glp_scale_prob(glp_prob *lp, int flags);
+/* scale problem data */
+
 void glp_unscale_prob(glp_prob *lp);
 /* unscale problem data */
 
@@ -348,17 +359,20 @@ void glp_set_row_stat(glp_prob *lp, int i, int stat);
 void glp_set_col_stat(glp_prob *lp, int j, int stat);
 /* set (change) column status */
 
+void glp_std_basis(glp_prob *lp);
+/* construct standard initial LP basis */
+
+void glp_adv_basis(glp_prob *lp, int flags);
+/* construct advanced initial LP basis */
+
+void glp_cpx_basis(glp_prob *lp);
+/* construct Bixby's initial LP basis */
+
 int glp_simplex(glp_prob *lp, const glp_smcp *parm);
 /* solve LP problem with the simplex method */
 
 void glp_init_smcp(glp_smcp *parm);
 /* initialize simplex method control parameters */
-
-int glp_get_row_stat(glp_prob *lp, int i);
-/* retrieve row status */
-
-int glp_get_col_stat(glp_prob *lp, int j);
-/* retrieve column status */
 
 int glp_get_status(glp_prob *lp);
 /* retrieve generic status of basic solution */
@@ -372,11 +386,17 @@ int glp_get_dual_stat(glp_prob *lp);
 double glp_get_obj_val(glp_prob *lp);
 /* retrieve objective value (basic solution) */
 
+int glp_get_row_stat(glp_prob *lp, int i);
+/* retrieve row status */
+
 double glp_get_row_prim(glp_prob *lp, int i);
 /* retrieve row primal value (basic solution) */
 
 double glp_get_row_dual(glp_prob *lp, int i);
 /* retrieve row dual value (basic solution) */
+
+int glp_get_col_stat(glp_prob *lp, int j);
+/* retrieve column status */
 
 double glp_get_col_prim(glp_prob *lp, int j);
 /* retrieve column primal value (basic solution) */
@@ -959,6 +979,14 @@ void lpx_scale_prob(LPX *lp);
 void lpx_unscale_prob(LPX *lp);
 /* unscale problem data */
 
+#define lpx_set_row_stat _glp_lpx_set_row_stat
+void lpx_set_row_stat(LPX *lp, int i, int stat);
+/* set (change) row status */
+
+#define lpx_set_col_stat _glp_lpx_set_col_stat
+void lpx_set_col_stat(LPX *lp, int j, int stat);
+/* set (change) column status */
+
 #define lpx_std_basis _glp_lpx_std_basis
 void lpx_std_basis(LPX *lp);
 /* construct standard initial LP basis */
@@ -970,14 +998,6 @@ void lpx_adv_basis(LPX *lp);
 #define lpx_cpx_basis _glp_lpx_cpx_basis
 void lpx_cpx_basis(LPX *lp);
 /* construct Bixby's initial LP basis */
-
-#define lpx_set_row_stat _glp_lpx_set_row_stat
-void lpx_set_row_stat(LPX *lp, int i, int stat);
-/* set (change) row status */
-
-#define lpx_set_col_stat _glp_lpx_set_col_stat
-void lpx_set_col_stat(LPX *lp, int j, int stat);
-/* set (change) column status */
 
 #define lpx_simplex _glp_lpx_simplex
 int lpx_simplex(LPX *lp);
@@ -1237,7 +1257,8 @@ int lpx_is_b_avail(LPX *lp);
 /* check if LP basis is available */
 
 #define lpx_write_pb _glp_lpx_write_pb
-int lpx_write_pb(LPX *lp, const char *fname, int normalized);
+int lpx_write_pb(LPX *lp, const char *fname, int normalized,
+      int binarize);
 /* write problem data in (normalized) OPB format */
 
 #define lpx_main _glp_lpx_main

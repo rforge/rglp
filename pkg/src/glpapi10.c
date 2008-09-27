@@ -23,7 +23,6 @@
 
 #define _GLPBFD_PRIVATE
 #include "glpapi.h"
-#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -189,7 +188,7 @@ fini: /* bring the return code to the calling program */
 int glp_bf_updated(glp_prob *lp)
 {     int cnt;
       if (!(lp->m == 0 || lp->valid))
-         xfault("glp_bf_update: basis factorization does not exist\n");
+         xerror("glp_bf_update: basis factorization does not exist\n");
       cnt = (lp->m == 0 ? 0 : lp->bfd->upd_cnt);
       return cnt;
 }
@@ -286,37 +285,37 @@ void glp_set_bfcp(glp_prob *lp, const glp_bfcp *parm)
          memcpy(bfcp, parm, sizeof(glp_bfcp));
          if (!(bfcp->type == GLP_BF_FT || bfcp->type == GLP_BF_BG ||
                bfcp->type == GLP_BF_GR))
-            xfault("glp_set_bfcp: type = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: type = %d; invalid parameter\n",
                bfcp->type);
          if (bfcp->lu_size < 0)
-            xfault("glp_set_bfcp: lu_size = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: lu_size = %d; invalid parameter\n",
                bfcp->lu_size);
          if (!(0.0 < bfcp->piv_tol && bfcp->piv_tol < 1.0))
-            xfault("glp_set_bfcp: piv_tol = %g; invalid parameter\n",
+            xerror("glp_set_bfcp: piv_tol = %g; invalid parameter\n",
                bfcp->piv_tol);
          if (bfcp->piv_lim < 1)
-            xfault("glp_set_bfcp: piv_lim = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: piv_lim = %d; invalid parameter\n",
                bfcp->piv_lim);
          if (!(bfcp->suhl == GLP_ON || bfcp->suhl == GLP_OFF))
-            xfault("glp_set_bfcp: suhl = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: suhl = %d; invalid parameter\n",
                bfcp->suhl);
          if (!(0.0 <= bfcp->eps_tol && bfcp->eps_tol <= 1e-6))
-            xfault("glp_set_bfcp: eps_tol = %g; invalid parameter\n",
+            xerror("glp_set_bfcp: eps_tol = %g; invalid parameter\n",
                bfcp->eps_tol);
          if (bfcp->max_gro < 1.0)
-            xfault("glp_set_bfcp: max_gro = %g; invalid parameter\n",
+            xerror("glp_set_bfcp: max_gro = %g; invalid parameter\n",
                bfcp->max_gro);
          if (!(1 <= bfcp->nfs_max && bfcp->nfs_max <= 32767))
-            xfault("glp_set_bfcp: nfs_max = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: nfs_max = %d; invalid parameter\n",
                bfcp->nfs_max);
          if (!(0.0 < bfcp->upd_tol && bfcp->upd_tol < 1.0))
-            xfault("glp_set_bfcp: upd_tol = %g; invalid parameter\n",
+            xerror("glp_set_bfcp: upd_tol = %g; invalid parameter\n",
                bfcp->upd_tol);
          if (!(1 <= bfcp->nrs_max && bfcp->nrs_max <= 32767))
-            xfault("glp_set_bfcp: nrs_max = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: nrs_max = %d; invalid parameter\n",
                bfcp->nrs_max);
          if (bfcp->rs_size < 0)
-            xfault("glp_set_bfcp: rs_size = %d; invalid parameter\n",
+            xerror("glp_set_bfcp: rs_size = %d; invalid parameter\n",
                bfcp->nrs_max);
          if (bfcp->rs_size == 0)
             bfcp->rs_size = 20 * bfcp->nrs_max;
@@ -355,9 +354,9 @@ BFD *_glp_access_bfd(glp_prob *lp)
 
 int glp_get_bhead(glp_prob *lp, int k)
 {     if (!(lp->m == 0 || lp->valid))
-         xfault("glp_get_bhead: basis factorization does not exist\n");
+         xerror("glp_get_bhead: basis factorization does not exist\n");
       if (!(1 <= k && k <= lp->m))
-         xfault("glp_get_bhead: k = %d; index out of range\n", k);
+         xerror("glp_get_bhead: k = %d; index out of range\n", k);
       return lp->head[k];
 }
 
@@ -380,10 +379,10 @@ int glp_get_bhead(glp_prob *lp, int k)
 
 int glp_get_row_bind(glp_prob *lp, int i)
 {     if (!(lp->m == 0 || lp->valid))
-         xfault("glp_get_row_bind: basis factorization does not exist\n"
+         xerror("glp_get_row_bind: basis factorization does not exist\n"
             );
       if (!(1 <= i && i <= lp->m))
-         xfault("glp_get_row_bind: i = %d; row number out of range\n",
+         xerror("glp_get_row_bind: i = %d; row number out of range\n",
             i);
       return lp->row[i]->bind;
 }
@@ -407,10 +406,10 @@ int glp_get_row_bind(glp_prob *lp, int i)
 
 int glp_get_col_bind(glp_prob *lp, int j)
 {     if (!(lp->m == 0 || lp->valid))
-         xfault("glp_get_col_bind: basis factorization does not exist\n"
+         xerror("glp_get_col_bind: basis factorization does not exist\n"
             );
       if (!(1 <= j && j <= lp->n))
-         xfault("glp_get_col_bind: j = %d; column number out of range\n"
+         xerror("glp_get_col_bind: j = %d; column number out of range\n"
             , j);
       return lp->col[j]->bind;
 }
@@ -477,7 +476,7 @@ void glp_ftran(glp_prob *lp, double x[])
       /* B*x = b ===> (R*B*SB)*(inv(SB)*x) = R*b ===>
          B"*x" = b", where b" = R*b, x = SB*x" */
       if (!(m == 0 || lp->valid))
-         xfault("glp_ftran: basis factorization does not exist\n");
+         xerror("glp_ftran: basis factorization does not exist\n");
       /* b" := R*b */
       for (i = 1; i <= m; i++)
          x[i] *= row[i]->rii;
@@ -527,7 +526,7 @@ void glp_btran(glp_prob *lp, double x[])
       /* B'*x = b ===> (SB*B'*R)*(inv(R)*x) = SB*b ===>
          (B")'*x" = b", where b" = SB*b, x = R*x" */
       if (!(m == 0 || lp->valid))
-         xfault("glp_btran: basis factorization does not exist\n");
+         xerror("glp_btran: basis factorization does not exist\n");
       /* b" := SB*b */
       for (i = 1; i <= m; i++)
       {  k = lp->head[i];
@@ -644,10 +643,10 @@ int glp_eval_tab_row(glp_prob *lp, int k, int ind[], double val[])
       int i, t, len, lll, *iii;
       double alfa, *rho, *vvv;
       if (!(m == 0 || lp->valid))
-         xfault("glp_eval_tab_row: basis factorization does not exist\n"
+         xerror("glp_eval_tab_row: basis factorization does not exist\n"
             );
       if (!(1 <= k && k <= m+n))
-         xfault("glp_eval_tab_row: k = %d; variable number out of range"
+         xerror("glp_eval_tab_row: k = %d; variable number out of range"
             , k);
       /* determine xB[i] which corresponds to x[k] */
       if (k <= m)
@@ -655,7 +654,7 @@ int glp_eval_tab_row(glp_prob *lp, int k, int ind[], double val[])
       else
          i = glp_get_col_bind(lp, k-m);
       if (i == 0)
-         xfault("glp_eval_tab_row: k = %d; variable must be basic", k);
+         xerror("glp_eval_tab_row: k = %d; variable must be basic", k);
       xassert(1 <= i && i <= m);
       /* allocate working arrays */
       rho = xcalloc(1+m, sizeof(double));
@@ -759,17 +758,17 @@ int glp_eval_tab_col(glp_prob *lp, int k, int ind[], double val[])
       int t, len, stat;
       double *col;
       if (!(m == 0 || lp->valid))
-         xfault("glp_eval_tab_col: basis factorization does not exist\n"
+         xerror("glp_eval_tab_col: basis factorization does not exist\n"
             );
       if (!(1 <= k && k <= m+n))
-         xfault("glp_eval_tab_col: k = %d; variable number out of range"
+         xerror("glp_eval_tab_col: k = %d; variable number out of range"
             , k);
       if (k <= m)
          stat = glp_get_row_stat(lp, k);
       else
          stat = glp_get_col_stat(lp, k-m);
       if (stat == GLP_BS)
-         xfault("glp_eval_tab_col: k = %d; variable must be non-basic",
+         xerror("glp_eval_tab_col: k = %d; variable must be non-basic",
             k);
       /* obtain column N[k] with negative sign */
       col = xcalloc(1+m, sizeof(double));

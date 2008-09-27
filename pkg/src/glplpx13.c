@@ -1,7 +1,9 @@
-/* glplpx13.c */
+/* glplpx13.c (bounds sensitivity analysis routine) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
+*
+*  Author: Brady Hunsaker <bkh@member.fsf.org>.
 *
 *  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
@@ -21,834 +23,559 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
+#define _GLPSTD_STDIO
 #include "glpapi.h"
 #include "glplib.h"
 
-static double get_row_lb(LPX *lp, int i)
-{     /* this routine returns lower bound of row i or -DBL_MAX if the
-         row has no lower bound */
-      double lb;
-      switch (lpx_get_row_type(lp, i))
-      {  case LPX_FR:
-         case LPX_UP:
-            lb = -DBL_MAX;
-            break;
-         case LPX_LO:
-         case LPX_DB:
-         case LPX_FX:
-            lb = lpx_get_row_lb(lp, i);
-            break;
-         default:
-            xassert(lp != lp);
-      }
-      return lb;
-}
-
-static double get_row_ub(LPX *lp, int i)
-{     /* this routine returns upper bound of row i or +DBL_MAX if the
-         row has no upper bound */
-      double ub;
-      switch (lpx_get_row_type(lp, i))
-      {  case LPX_FR:
-         case LPX_LO:
-            ub = +DBL_MAX;
-            break;
-         case LPX_UP:
-         case LPX_DB:
-         case LPX_FX:
-            ub = lpx_get_row_ub(lp, i);
-            break;
-         default:
-            xassert(lp != lp);
-      }
-      return ub;
-}
-
-static double get_col_lb(LPX *lp, int j)
-{     /* this routine returns lower bound of column j or -DBL_MAX if
-         the column has no lower bound */
-      double lb;
-      switch (lpx_get_col_type(lp, j))
-      {  case LPX_FR:
-         case LPX_UP:
-            lb = -DBL_MAX;
-            break;
-         case LPX_LO:
-         case LPX_DB:
-         case LPX_FX:
-            lb = lpx_get_col_lb(lp, j);
-            break;
-         default:
-            xassert(lp != lp);
-      }
-      return lb;
-}
-
-static double get_col_ub(LPX *lp, int j)
-{     /* this routine returns upper bound of column j or +DBL_MAX if
-         the column has no upper bound */
-      double ub;
-      switch (lpx_get_col_type(lp, j))
-      {  case LPX_FR:
-         case LPX_LO:
-            ub = +DBL_MAX;
-            break;
-         case LPX_UP:
-         case LPX_DB:
-         case LPX_FX:
-            ub = lpx_get_col_ub(lp, j);
-            break;
-         default:
-            xassert(lp != lp);
-      }
-      return ub;
-}
-
-static int is_binary(LPX *lp, int j)
-{     /* this routine checks if variable x[j] is binary */
-      return
-         lpx_get_col_kind(lp, j) == LPX_IV &&
-         lpx_get_col_type(lp, j) == LPX_DB &&
-         lpx_get_col_lb(lp, j) == 0.0 && lpx_get_col_ub(lp, j) == 1.0;
-}
-
-static double eval_lf_min(LPX *lp, int len, int ind[], double val[])
-{     /* this routine computes the minimum of a specified linear form
-
-            sum a[j]*x[j]
-             j
-
-         using the formula:
-
-            min =   sum   a[j]*lb[j] +   sum   a[j]*ub[j],
-                  j in J+              j in J-
-
-         where J+ = {j: a[j] > 0}, J- = {j: a[j] < 0}, lb[j] and ub[j]
-         are lower and upper bound of variable x[j], resp. */
-      int j, t;
-      double lb, ub, sum;
-      sum = 0.0;
-      for (t = 1; t <= len; t++)
-      {  j = ind[t];
-         if (val[t] > 0.0)
-         {  lb = get_col_lb(lp, j);
-            if (lb == -DBL_MAX)
-            {  sum = -DBL_MAX;
-               break;
-            }
-            sum += val[t] * lb;
-         }
-         else if (val[t] < 0.0)
-         {  ub = get_col_ub(lp, j);
-            if (ub == +DBL_MAX)
-            {  sum = -DBL_MAX;
-               break;
-            }
-            sum += val[t] * ub;
-         }
-         else
-            xassert(val != val);
-      }
-      return sum;
-}
-
-static double eval_lf_max(LPX *lp, int len, int ind[], double val[])
-{     /* this routine computes the maximum of a specified linear form
-
-            sum a[j]*x[j]
-             j
-
-         using the formula:
-
-            max =   sum   a[j]*ub[j] +   sum   a[j]*lb[j],
-                  j in J+              j in J-
-
-         where J+ = {j: a[j] > 0}, J- = {j: a[j] < 0}, lb[j] and ub[j]
-         are lower and upper bound of variable x[j], resp. */
-      int j, t;
-      double lb, ub, sum;
-      sum = 0.0;
-      for (t = 1; t <= len; t++)
-      {  j = ind[t];
-         if (val[t] > 0.0)
-         {  ub = get_col_ub(lp, j);
-            if (ub == +DBL_MAX)
-            {  sum = +DBL_MAX;
-               break;
-            }
-            sum += val[t] * ub;
-         }
-         else if (val[t] < 0.0)
-         {  lb = get_col_lb(lp, j);
-            if (lb == -DBL_MAX)
-            {  sum = +DBL_MAX;
-               break;
-            }
-            sum += val[t] * lb;
-         }
-         else
-            xassert(val != val);
-      }
-      return sum;
-}
-
 /*----------------------------------------------------------------------
--- probing - determine logical relation between binary variables.
+-- lpx_print_sens_bnds - write bounds sensitivity information.
 --
--- This routine tentatively sets a binary variable to 0 and then to 1
--- and examines whether another binary variable is caused to be fixed.
+-- *Synopsis*
 --
--- The examination is based only on one row (constraint), which is the
--- following:
+-- #include "glplpx.h"
+-- int lpx_print_sens_bnds(LPX *lp, char *fname);
 --
---    L <= sum a[j]*x[j] <= U.                                       (1)
---          j
+-- *Description*
 --
--- Let x[p] be a probing variable, x[q] be an examined variable. Then
--- (1) can be written as:
+-- The routine lpx_print_sens_bnds writes the bounds for objective
+-- coefficients, right-hand-sides of constraints, and variable bounds
+-- for which the current optimal basic solution remains optimal (for LP
+-- only).
 --
---    L <=   sum  a[j]*x[j] + a[p]*x[p] + a[q]*x[q] <= U,            (2)
---         j in J'
+-- The LP is given by the pointer lp, and the output is written to the
+-- file specified by fname.  The current contents of the file will be
+-- overwritten.
 --
--- where J' = {j: j != p and j != q}.
+-- Information reported by the routine lpx_print_sens_bnds is intended
+-- mainly for visual analysis.
 --
--- Let
+-- *Returns*
 --
---    L' = L - a[p]*x[p],                                            (3)
---
---    U' = U - a[p]*x[p],                                            (4)
---
--- where x[p] is assumed to be fixed at 0 or 1. So (2) can be rewritten
--- as follows:
---
---    L' <=   sum  a[j]*x[j] + a[q]*x[q] <= U',                      (5)
---          j in J'
---
--- from where we have:
---
---    L' -  sum  a[j]*x[j] <= a[q]*x[q] <= U' -  sum  a[j]*x[j].     (6)
---        j in J'                              j in J'
---
--- Thus,
---
---    min a[q]*x[q] = L' - MAX,                                      (7)
---
---    max a[q]*x[q] = U' - MIN,                                      (8)
---
--- where
---
---    MIN = min  sum  a[j]*x[j],                                     (9)
---             j in J'
---
---    MAX = max  sum  a[j]*x[j].                                    (10)
---             j in J'
---
--- Formulae (7) and (8) allows determining implied lower and upper
--- bounds of x[q].
---
--- Parameters len, val, L and U specify the constraint (1).
---
--- Parameters lf_min and lf_max specify implied lower and upper bounds
--- of the linear form (1). It is assumed that these bounds are computed
--- with the routines eval_lf_min and eval_lf_max (see above).
---
--- Parameter p specifies the probing variable x[p], which is set to 0
--- (if set is 0) or to 1 (if set is 1).
---
--- Parameter q specifies the examined variable x[q].
---
--- On exit the routine returns one of the following codes:
---
--- 0 - there is no logical relation between x[p] and x[q];
--- 1 - x[q] can take only on value 0;
--- 2 - x[q] can take only on value 1. */
+-- If the operation was successful, the routine returns zero. Otherwise
+-- the routine prints an error message and returns non-zero. */
 
-static int probing(int len, double val[], double L, double U,
-      double lf_min, double lf_max, int p, int set, int q)
-{     double temp;
-      xassert(1 <= p && p < q && q <= len);
-      /* compute L' (3) */
-      if (L != -DBL_MAX && set) L -= val[p];
-      /* compute U' (4) */
-      if (U != +DBL_MAX && set) U -= val[p];
-      /* compute MIN (9) */
-      if (lf_min != -DBL_MAX)
-      {  if (val[p] < 0.0) lf_min -= val[p];
-         if (val[q] < 0.0) lf_min -= val[q];
+int lpx_print_sens_bnds(LPX *lp, const char *fname)
+{     FILE *fp = NULL;
+      int what, round;
+      xprintf("lpx_print_sens_bnds: writing LP problem solution bounds "
+         "to `%s'...\n", fname);
+#if 1
+      /* added by mao */
+      /* this routine needs factorization of the current basis matrix
+         which, however, does not exist if the basic solution was
+         obtained by the lp presolver; therefore we should warm up the
+         basis to be sure that the factorization is valid (note that if
+         the factorization exists, lpx_warm_up does nothing) */
+      lpx_warm_up(lp);
+#endif
+#if 0 /* 21/XII-2003 by mao */
+      if (lp->b_stat == LPX_B_UNDEF)
+#else
+      if (!lpx_is_b_avail(lp))
+#endif
+      {  xprintf("lpx_print_sens_bnds: basis information not available "
+            "(may be a presolve issue)\n");
+         goto fail;
       }
-      /* compute MAX (10) */
-      if (lf_max != +DBL_MAX)
-      {  if (val[p] > 0.0) lf_max -= val[p];
-         if (val[q] > 0.0) lf_max -= val[q];
+      fp = fopen(fname, "w");
+      if (fp == NULL)
+      {  xprintf("lpx_print_sens_bnds: can't create `%s' - %s\n",
+            fname, strerror(errno));
+         goto fail;
       }
-      /* compute implied lower bound of x[q]; see (7), (8) */
-      if (val[q] > 0.0)
-      {  if (L == -DBL_MAX || lf_max == +DBL_MAX)
-            temp = -DBL_MAX;
-         else
-            temp = (L - lf_max) / val[q];
+      /* problem name */
+      {  const char *name;
+         name = lpx_get_prob_name(lp);
+         if (name == NULL) name = "";
+         fprintf(fp, "%-12s%s\n", "Problem:", name);
       }
-      else
-      {  if (U == +DBL_MAX || lf_min == -DBL_MAX)
-            temp = -DBL_MAX;
-         else
-            temp = (U - lf_min) / val[q];
+      /* number of rows (auxiliary variables) */
+      {  int nr;
+         nr = lpx_get_num_rows(lp);
+         fprintf(fp, "%-12s%d\n", "Rows:", nr);
       }
-      if (temp > 0.001) return 2;
-      /* compute implied upper bound of x[q]; see (7), (8) */
-      if (val[q] > 0.0)
-      {  if (U == +DBL_MAX || lf_min == -DBL_MAX)
-            temp = +DBL_MAX;
-         else
-            temp = (U - lf_min) / val[q];
+      /* number of columns (structural variables) */
+      {  int nc;
+         nc = lpx_get_num_cols(lp);
+         fprintf(fp, "%-12s%d\n", "Columns:", nc);
       }
-      else
-      {  if (L == -DBL_MAX || lf_max == +DBL_MAX)
-            temp = +DBL_MAX;
-         else
-            temp = (L - lf_max) / val[q];
+      /* number of non-zeros (constraint coefficients) */
+      {  int nz;
+         nz = lpx_get_num_nz(lp);
+         fprintf(fp, "%-12s%d\n", "Non-zeros:", nz);
       }
-      if (temp < 0.999) return 1;
-      /* there is no logical relation between x[p] and x[q] */
+      /* solution status */
+      {  int status;
+         status = lpx_get_status(lp);
+         fprintf(fp, "%-12s%s\n", "Status:",
+            status == LPX_OPT    ? "OPTIMAL" :
+            status == LPX_FEAS   ? "FEASIBLE" :
+            status == LPX_INFEAS ? "INFEASIBLE (INTERMEDIATE)" :
+            status == LPX_NOFEAS ? "INFEASIBLE (FINAL)" :
+            status == LPX_UNBND  ? "UNBOUNDED" :
+            status == LPX_UNDEF  ? "UNDEFINED" : "???");
+      }
+      /* explanation/warning */
+      {  fprintf(fp, "\nExplanation:  This file presents amounts by whi"
+            "ch objective coefficients,\n");
+         fprintf(fp, "constraint bounds, and variable bounds may be cha"
+            "nged in the original problem\n");
+         fprintf(fp, "while the optimal basis remains the same.  Note t"
+            "hat the optimal solution\n");
+         fprintf(fp, "and objective value may change even though the ba"
+            "sis remains the same.\n");
+         fprintf(fp, "These bounds assume that all parameters remain fi"
+            "xed except the one in\n");
+         fprintf(fp, "question.  If more than one parameter is changed,"
+            " it is possible for the\n");
+         fprintf(fp, "optimal basis to change even though each paramete"
+            "r stays within its bounds.\n");
+         fprintf(fp, "For more details, consult a text on linear progra"
+            "mming.\n");
+      }
+      /* Sensitivity ranges if solution was optimal */
+      {  int status;
+         status = lpx_get_status(lp);
+         if (status == LPX_OPT)
+         {  int i,j,k,m,n;
+            int dir;
+            double max_inc, max_dec;
+            int *index;
+            double *val;
+            fprintf(fp, "\nObjective Coefficient Analysis\n");
+            fprintf(fp, "   No.  Column name St    Value       Max incr"
+               "ease  Max decrease\n");
+            fprintf(fp, "------ ------------ -- ------------- ---------"
+               "---- ------------- \n");
+            n = lpx_get_num_cols(lp);
+            m = lpx_get_num_rows(lp);
+            dir = lpx_get_obj_dir(lp);
+            /* allocate memory for index and val arrays */
+            index = xcalloc(1+n+m, sizeof(int));
+            val   = xcalloc(1+n+m, sizeof(double));
+            for (j = 1; j <= n; j++)
+            {  const char *name;
+               int typx, tagx;
+               double lb, ub, vx, dx;
+               name = lpx_get_col_name(lp, j);
+               if (name == NULL) name = "";
+               lpx_get_col_bnds(lp, j, &typx, &lb, &ub);
+#if 0 /* 21/XII-2003 by mao */
+               round = lp->round, lp->round = 1;
+               lpx_get_col_info(lp, j, &tagx, &vx, &dx);
+               lp->round = round;
+#else
+               round = lpx_get_int_parm(lp, LPX_K_ROUND);
+               lpx_set_int_parm(lp, LPX_K_ROUND, 1);
+               lpx_get_col_info(lp, j, &tagx, &vx, &dx);
+               lpx_set_int_parm(lp, LPX_K_ROUND, round);
+#endif
+               /* row/column ordinal number */
+               fprintf(fp, "%6d ", j);
+               /* row column/name */
+               if (strlen(name) <= 12)
+                  fprintf(fp, "%-12s ", name);
+               else
+                  fprintf(fp, "%s\n%20s", name, "");
+               /* row/column status */
+               fprintf(fp, "%s ",
+                  tagx == LPX_BS ? "B " :
+                  tagx == LPX_NL ? "NL" :
+                  tagx == LPX_NU ? "NU" :
+                  tagx == LPX_NF ? "NF" :
+                  tagx == LPX_NS ? "NS" : "??");
+               /* objective coefficient */
+               fprintf(fp, "%13.6g ", lpx_get_obj_coef(lp, j));
+               if (tagx == LPX_NL)
+               {  if (dir==LPX_MIN)
+                  {  /* reduced cost must be positive */
+                     max_inc = DBL_MAX; /* really represents infinity */
+                     max_dec = dx;
+                  }
+                  else
+                  {  /* reduced cost must be negative */
+                     max_inc = -dx;
+                     max_dec = DBL_MAX; /* means infinity */
+                  }
+               }
+               if (tagx == LPX_NU)
+               {  if (dir==LPX_MIN)
+                  {  /* reduced cost must be negative */
+                     max_inc = -dx;
+                     max_dec = DBL_MAX;
+                  }
+                  else
+                  {  max_inc = DBL_MAX;
+                     max_dec = dx;
+                  }
+               }
+               if (tagx == LPX_NF)
+               {  /* can't change nonbasic free variables' cost */
+                  max_inc = 0.0;
+                  max_dec = 0.0;
+               }
+               if (tagx == LPX_NS)
+               {  /* doesn't matter what happens to the cost */
+                  max_inc = DBL_MAX;
+                  max_dec = DBL_MAX;
+               }
+               if (tagx == LPX_BS)
+               {  int len;
+                  /* We need to see how this objective coefficient
+                     affects reduced costs of other variables */
+                  len = lpx_eval_tab_row(lp, m+j, index, val);
+                  max_inc = DBL_MAX;
+                  max_dec = DBL_MAX;
+                  for (i = 1; i <= len; i++)
+                  {  /*int stat;*/
+                     int tagx2;
+                     double vx2, dx2;
+                     double delta;
+                     if (index[i]>m)
+                        lpx_get_col_info(lp, index[i]-m, &tagx2, &vx2,
+                           &dx2);
+                     else
+                        lpx_get_row_info(lp, index[i], &tagx2, &vx2,
+                           &dx2);
+                     if (tagx2 == LPX_NL)
+                     {  if (val[i] != 0.0)
+                        {  delta = dx2 / val[i];
+                           if (delta < 0 && -delta < max_inc)
+                              max_inc = -delta;
+                           else if (delta >0 && delta < max_dec)
+                              max_dec = delta;
+                        }
+                     }
+                     if (tagx2 == LPX_NU)
+                     {  if (val[i] != 0.0)
+                        {  delta = dx2 / val[i];
+                           if (delta < 0 && -delta < max_inc)
+                              max_inc = -delta;
+                           else if (delta > 0 && delta < max_dec)
+                              max_dec = delta;
+                        }
+                     }
+                     if (tagx2 == LPX_NF)
+                     {  if (val[i] != 0.0)
+                        {  max_inc = 0.0;
+                           max_dec = 0.0;
+                        }
+                     }
+                  }
+               }
+               if (max_inc == -0.0) max_inc = 0.0;
+               if (max_dec == -0.0) max_dec = 0.0;
+               if (max_inc == DBL_MAX)
+                  fprintf(fp, "%13s ", "infinity");
+               else if (max_inc < 1.0e-12 && max_inc > 0)
+                  fprintf(fp, "%13s ", "< eps");
+               else
+                  fprintf(fp, "%13.6g ", max_inc);
+               if (max_dec == DBL_MAX)
+                  fprintf(fp, "%13s ", "infinity");
+               else if (max_dec < 1.0e-12 && max_dec > 0)
+                  fprintf(fp, "%13s ", "< eps");
+               else
+                  fprintf(fp, "%13.6g ", max_dec);
+               fprintf(fp, "\n");
+            }
+            for (what = 1; what <= 2; what++)
+            {  int ij, mn;
+               fprintf(fp, "\n");
+               fprintf(fp, "%s Analysis\n",
+                  what==1? "Constraint Bounds":"Variable Bounds");
+               fprintf(fp, "   No. %12s St    Value       Max increase "
+                  " Max decrease\n",
+                  what==1 ? " Row name":"Column name");
+               fprintf(fp, "------ ------------ -- ------------- ------"
+                  "------- ------------- \n");
+               mn = what==1 ? m : n;
+               for (ij = 1; ij <= mn; ij++)
+               {  const char *name;
+                  int typx, tagx;
+                  double lb, ub, vx, dx;
+                  if (what==1)
+                     name = lpx_get_row_name(lp, ij);
+                  else
+                     name = lpx_get_col_name(lp, ij);
+                  if (name == NULL) name = "";
+#if 0 /* 21/XII-2003 by mao */
+                  if (what==1)
+                  {  lpx_get_row_bnds(lp, ij, &typx, &lb, &ub);
+                     round = lp->round, lp->round = 1;
+                     lpx_get_row_info(lp, ij, &tagx, &vx, &dx);
+                     lp->round = round;
+                  }
+                  else
+                  {  lpx_get_col_bnds(lp, ij, &typx, &lb, &ub);
+                     round = lp->round, lp->round = 1;
+                     lpx_get_col_info(lp, ij, &tagx, &vx, &dx);
+                     lp->round = round;
+                  }
+#else
+                  round = lpx_get_int_parm(lp, LPX_K_ROUND);
+                  lpx_set_int_parm(lp, LPX_K_ROUND, 1);
+                  if (what==1)
+                  {  lpx_get_row_bnds(lp, ij, &typx, &lb, &ub);
+                     lpx_get_row_info(lp, ij, &tagx, &vx, &dx);
+                  }
+                  else
+                  {  lpx_get_col_bnds(lp, ij, &typx, &lb, &ub);
+                     lpx_get_col_info(lp, ij, &tagx, &vx, &dx);
+                  }
+                  lpx_set_int_parm(lp, LPX_K_ROUND, round);
+#endif
+                  /* row/column ordinal number */
+                  fprintf(fp, "%6d ", ij);
+                  /* row column/name */
+                  if (strlen(name) <= 12)
+                     fprintf(fp, "%-12s ", name);
+                  else
+                     fprintf(fp, "%s\n%20s", name, "");
+                  /* row/column status */
+                  fprintf(fp, "%s ",
+                     tagx == LPX_BS ? "B " :
+                     tagx == LPX_NL ? "NL" :
+                     tagx == LPX_NU ? "NU" :
+                     tagx == LPX_NF ? "NF" :
+                     tagx == LPX_NS ? "NS" : "??");
+                  fprintf(fp, "\n");
+                  /* first check lower bound */
+                  if (typx == LPX_LO || typx == LPX_DB ||
+                      typx == LPX_FX)
+                  {  int at_lower;
+                     at_lower = 0;
+                     if (tagx == LPX_BS || tagx == LPX_NU)
+                     {  max_inc = vx - lb;
+                        max_dec = DBL_MAX;
+                     }
+                     if (tagx == LPX_NS)
+                     {  max_inc = 0.0;
+                        max_dec = 0.0;
+                        if (dir == LPX_MIN && dx > 0) at_lower = 1;
+                        if (dir == LPX_MAX && dx < 0) at_lower = 1;
+                     }
+                     if (tagx == LPX_NL || at_lower == 1)
+                     {  int len;
+                        /* we have to see how it affects basic
+                           variables */
+                        len = lpx_eval_tab_col(lp, what==1?ij:ij+m,
+                           index, val);
+                        k = lpx_prim_ratio_test(lp, len, index, val, 1,
+                           10e-7);
+                        max_inc = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is upper bound */
+                           if (alpha > 0)
+                              max_inc = (ub2 - vx2)/ alpha;
+                           else
+                              max_inc = (lb2 - vx2)/ alpha;
+                        }
+                        /* now check lower bound */
+                        k = lpx_prim_ratio_test(lp, len, index, val, -1,
+                           10e-7);
+                        max_dec = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is lower bound */
+                           if (alpha > 0)
+                              max_dec = (vx2 - lb2)/ alpha;
+                           else
+                              max_dec = (vx2 - ub2)/ alpha;
+                        }
+                     }
+                     /* bound */
+                     if (typx == LPX_DB || typx == LPX_FX)
+                     {  if (max_inc > ub - lb)
+                           max_inc = ub - lb;
+                     }
+                     fprintf(fp, "         LOWER         %13.6g ", lb);
+                     if (max_inc == -0.0) max_inc = 0.0;
+                     if (max_dec == -0.0) max_dec = 0.0;
+                     if (max_inc == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_inc < 1.0e-12 && max_inc > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_inc);
+                     if (max_dec == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_dec < 1.0e-12 && max_dec > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_dec);
+                     fprintf(fp, "\n");
+                  }
+                  /* now check upper bound */
+                  if (typx == LPX_UP || typx == LPX_DB ||
+                     typx == LPX_FX)
+                  {  int at_upper;
+                     at_upper = 0;
+                     if (tagx == LPX_BS || tagx == LPX_NL)
+                     {  max_inc = DBL_MAX;
+                        max_dec = ub - vx;
+                     }
+                     if (tagx == LPX_NS)
+                     {  max_inc = 0.0;
+                        max_dec = 0.0;
+                        if (dir == LPX_MIN && dx < 0) at_upper = 1;
+                        if (dir == LPX_MAX && dx > 0) at_upper = 1;
+                     }
+                     if (tagx == LPX_NU || at_upper == 1)
+                     {  int len;
+                        /* we have to see how it affects basic
+                           variables */
+                        len = lpx_eval_tab_col(lp, what==1?ij:ij+m,
+                           index, val);
+                        k = lpx_prim_ratio_test(lp, len, index, val, 1,
+                           10e-7);
+                        max_inc = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is upper bound */
+                           if (alpha > 0)
+                              max_inc = (ub2 - vx2)/ alpha;
+                           else
+                              max_inc = (lb2 - vx2)/ alpha;
+                        }
+                        /* now check lower bound */
+                        k = lpx_prim_ratio_test(lp, len, index, val, -1,
+                           10e-7);
+                        max_dec = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is lower bound */
+                           if (alpha > 0)
+                              max_dec = (vx2 - lb2)/ alpha;
+                           else
+                              max_dec = (vx2 - ub2)/ alpha;
+                        }
+                     }
+                     if (typx == LPX_DB || typx == LPX_FX)
+                     {  if (max_dec > ub - lb)
+                           max_dec = ub - lb;
+                     }
+                     /* bound */
+                     fprintf(fp, "         UPPER         %13.6g ", ub);
+                     if (max_inc == -0.0) max_inc = 0.0;
+                     if (max_dec == -0.0) max_dec = 0.0;
+                     if (max_inc == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_inc < 1.0e-12 && max_inc > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_inc);
+                     if (max_dec == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_dec < 1.0e-12 && max_dec > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_dec);
+                     fprintf(fp, "\n");
+                  }
+               }
+            }
+            /* free the memory we used */
+            xfree(index);
+            xfree(val);
+         }
+         else fprintf(fp, "No range information since solution is not o"
+            "ptimal.\n");
+      }
+      fprintf(fp, "\n");
+      fprintf(fp, "End of output\n");
+      fflush(fp);
+      if (ferror(fp))
+      {  xprintf("lpx_print_sens_bnds: can't write to `%s' - %s\n",
+            fname, strerror(errno));
+         goto fail;
+      }
+      fclose(fp);
       return 0;
-}
-
-struct COG
-{     /* conflict graph; it represents logical relations between binary
-         variables and has a vertex for each binary variable and its
-         complement, and an edge between two vertices when at most one
-         of the variables represented by the vertices can equal one in
-         an optimal solution */
-      int n;
-      /* number of variables */
-      int nb;
-      /* number of binary variables represented in the graph (note that
-         not all binary variables can be represented); vertices which
-         correspond to binary variables have numbers 1, ..., nb while
-         vertices which correspond to complements of binary variables
-         have numbers nb+1, ..., nb+nb */
-      int ne;
-      /* number of edges in the graph */
-      int *vert; /* int vert[1+n]; */
-      /* if x[j] is a binary variable represented in the graph, vert[j]
-         is the vertex number corresponding to x[j]; otherwise vert[j]
-         is zero */
-      int *orig; /* int list[1:nb]; */
-      /* if vert[j] = k > 0, then orig[k] = j */
-      unsigned char *a;
-      /* adjacency matrix of the graph having 2*nb rows and columns;
-         only strict lower triangle is stored in dense packed form */
-};
-
-/*----------------------------------------------------------------------
--- lpx_create_cog - create the conflict graph.
---
--- SYNOPSIS
---
--- #include "glplpx.h"
--- void *lpx_create_cog(LPX *lp);
---
--- DESCRIPTION
---
--- The routine lpx_create_cog creates the conflict graph for a given
--- problem instance.
---
--- RETURNS
---
--- If the graph has been created, the routine returns a pointer to it.
--- Otherwise the routine returns NULL. */
-
-#define MAX_NB 4000
-#define MAX_ROW_LEN 500
-
-void *lpx_create_cog(LPX *lp)
-{     struct COG *cog = NULL;
-      int m, n, nb, i, j, p, q, len, *ind, *vert, *orig;
-      double L, U, lf_min, lf_max, *val;
-      xprintf("Creating the conflict graph...\n");
-      m = lpx_get_num_rows(lp);
-      n = lpx_get_num_cols(lp);
-      /* determine which binary variables should be included in the
-         conflict graph */
-      nb = 0;
-      vert = xcalloc(1+n, sizeof(int));
-      for (j = 1; j <= n; j++) vert[j] = 0;
-      orig = xcalloc(1+n, sizeof(int));
-      ind = xcalloc(1+n, sizeof(int));
-      val = xcalloc(1+n, sizeof(double));
-      for (i = 1; i <= m; i++)
-      {  L = get_row_lb(lp, i);
-         U = get_row_ub(lp, i);
-         if (L == -DBL_MAX && U == +DBL_MAX) continue;
-         len = lpx_get_mat_row(lp, i, ind, val);
-         if (len > MAX_ROW_LEN) continue;
-         lf_min = eval_lf_min(lp, len, ind, val);
-         lf_max = eval_lf_max(lp, len, ind, val);
-         for (p = 1; p <= len; p++)
-         {  if (!is_binary(lp, ind[p])) continue;
-            for (q = p+1; q <= len; q++)
-            {  if (!is_binary(lp, ind[q])) continue;
-               if (probing(len, val, L, U, lf_min, lf_max, p, 0, q) ||
-                   probing(len, val, L, U, lf_min, lf_max, p, 1, q))
-               {  /* there is a logical relation */
-                  /* include the first variable in the graph */
-                  j = ind[p];
-                  if (vert[j] == 0) nb++, vert[j] = nb, orig[nb] = j;
-                  /* incude the second variable in the graph */
-                  j = ind[q];
-                  if (vert[j] == 0) nb++, vert[j] = nb, orig[nb] = j;
-               }
-            }
-         }
-      }
-      /* if the graph is either empty or has too many vertices, do not
-         create it */
-      if (nb == 0 || nb > MAX_NB)
-      {  xprintf("The conflict graph is either empty or too big\n");
-         xfree(vert);
-         xfree(orig);
-         goto done;
-      }
-      /* create the conflict graph */
-      cog = xmalloc(sizeof(struct COG));
-      cog->n = n;
-      cog->nb = nb;
-      cog->ne = 0;
-      cog->vert = vert;
-      cog->orig = orig;
-      len = nb + nb; /* number of vertices */
-      len = (len * (len - 1)) / 2; /* number of entries in triangle */
-      len = (len + (CHAR_BIT - 1)) / CHAR_BIT; /* bytes needed */
-      cog->a = xmalloc(len);
-      memset(cog->a, 0, len);
-      for (j = 1; j <= nb; j++)
-      {  /* add edge between variable and its complement */
-         lpx_add_cog_edge(cog, +orig[j], -orig[j]);
-      }
-      for (i = 1; i <= m; i++)
-      {  L = get_row_lb(lp, i);
-         U = get_row_ub(lp, i);
-         if (L == -DBL_MAX && U == +DBL_MAX) continue;
-         len = lpx_get_mat_row(lp, i, ind, val);
-         if (len > MAX_ROW_LEN) continue;
-         lf_min = eval_lf_min(lp, len, ind, val);
-         lf_max = eval_lf_max(lp, len, ind, val);
-         for (p = 1; p <= len; p++)
-         {  if (!is_binary(lp, ind[p])) continue;
-            for (q = p+1; q <= len; q++)
-            {  if (!is_binary(lp, ind[q])) continue;
-               /* set x[p] to 0 and examine x[q] */
-               switch (probing(len, val, L, U, lf_min, lf_max, p, 0, q))
-               {  case 0:
-                     /* no logical relation */
-                     break;
-                  case 1:
-                     /* x[p] = 0 implies x[q] = 0 */
-                     lpx_add_cog_edge(cog, -ind[p], +ind[q]);
-                     break;
-                  case 2:
-                     /* x[p] = 0 implies x[q] = 1 */
-                     lpx_add_cog_edge(cog, -ind[p], -ind[q]);
-                     break;
-                  default:
-                     xassert(lp != lp);
-               }
-               /* set x[p] to 1 and examine x[q] */
-               switch (probing(len, val, L, U, lf_min, lf_max, p, 1, q))
-               {  case 0:
-                     /* no logical relation */
-                     break;
-                  case 1:
-                     /* x[p] = 1 implies x[q] = 0 */
-                     lpx_add_cog_edge(cog, +ind[p], +ind[q]);
-                     break;
-                  case 2:
-                     /* x[p] = 1 implies x[q] = 1 */
-                     lpx_add_cog_edge(cog, +ind[p], -ind[q]);
-                     break;
-                  default:
-                     xassert(lp != lp);
-               }
-            }
-         }
-      }
-      xprintf("The conflict graph has 2*%d vertices and %d edges\n",
-         cog->nb, cog->ne);
-done: xfree(ind);
-      xfree(val);
-      return cog;
-}
-
-/*----------------------------------------------------------------------
--- lpx_add_cog_edge - add edge to the conflict graph.
---
--- SYNOPSIS
---
--- #include "glplpx.h"
--- void lpx_add_cog_edge(void *cog, int i, int j);
---
--- DESCRIPTION
---
--- The routine lpx_add_cog_edge adds an edge to the conflict graph.
--- The edge connects x[i] (if i > 0) or its complement (if i < 0) and
--- x[j] (if j > 0) or its complement (if j < 0), where i and j are
--- original ordinal numbers of corresponding variables. */
-
-void lpx_add_cog_edge(void *_cog, int i, int j)
-{     struct COG *cog = _cog;
-      int k;
-      xassert(i != j);
-      /* determine indices of corresponding vertices */
-      if (i > 0)
-      {  xassert(1 <= i && i <= cog->n);
-         i = cog->vert[i];
-         xassert(i != 0);
-      }
-      else
-      {  i = -i;
-         xassert(1 <= i && i <= cog->n);
-         i = cog->vert[i];
-         xassert(i != 0);
-         i += cog->nb;
-      }
-      if (j > 0)
-      {  xassert(1 <= j && j <= cog->n);
-         j = cog->vert[j];
-         xassert(j != 0);
-      }
-      else
-      {  j = -j;
-         xassert(1 <= j && j <= cog->n);
-         j = cog->vert[j];
-         xassert(j != 0);
-         j += cog->nb;
-      }
-      /* only lower triangle is stored, so we need i > j */
-      if (i < j) k = i, i = j, j = k;
-      k = ((i - 1) * (i - 2)) / 2 + (j - 1);
-      cog->a[k / CHAR_BIT] |=
-         (unsigned char)(1 << ((CHAR_BIT - 1) - k % CHAR_BIT));
-      cog->ne++;
-      return;
-}
-
-/*----------------------------------------------------------------------
--- MAXIMUM WEIGHT CLIQUE
---
--- Two subroutines sub() and wclique() below are intended to find a
--- maximum weight clique in a given undirected graph. These subroutines
--- are slightly modified version of the program WCLIQUE developed by
--- Patric Ostergard <http://www.tcs.hut.fi/~pat/wclique.html> and based
--- on ideas from the article "P. R. J. Ostergard, A new algorithm for
--- the maximum-weight clique problem, submitted for publication", which
--- in turn is a generalization of the algorithm for unweighted graphs
--- presented in "P. R. J. Ostergard, A fast algorithm for the maximum
--- clique problem, submitted for publication".
---
--- USED WITH PERMISSION OF THE AUTHOR OF THE ORIGINAL CODE. */
-
-struct dsa
-{     /* dynamic storage area */
-      int n;
-      /* number of vertices */
-      int *wt; /* int wt[0:n-1]; */
-      /* weights */
-      unsigned char *a;
-      /* adjacency matrix (packed lower triangle without main diag.) */
-      int record;
-      /* weight of best clique */
-      int rec_level;
-      /* number of vertices in best clique */
-      int *rec; /* int rec[0:n-1]; */
-      /* best clique so far */
-      int *clique; /* int clique[0:n-1]; */
-      /* table for pruning */
-      int *set; /* int set[0:n-1]; */
-      /* current clique */
-};
-
-#define n         (dsa->n)
-#define wt        (dsa->wt)
-#define a         (dsa->a)
-#define record    (dsa->record)
-#define rec_level (dsa->rec_level)
-#define rec       (dsa->rec)
-#define clique    (dsa->clique)
-#define set       (dsa->set)
-
-#if 0
-static int is_edge(struct dsa *dsa, int i, int j)
-{     /* if there is arc (i,j), the routine returns true; otherwise
-         false; 0 <= i, j < n */
-      int k;
-      xassert(0 <= i && i < n);
-      xassert(0 <= j && j < n);
-      if (i == j) return 0;
-      if (i < j) k = i, i = j, j = k;
-      k = (i * (i - 1)) / 2 + j;
-      return a[k / CHAR_BIT] &
-         (unsigned char)(1 << ((CHAR_BIT - 1) - k % CHAR_BIT));
-}
-#else
-#define is_edge(dsa, i, j) ((i) == (j) ? 0 : \
-      (i) > (j) ? is_edge1(i, j) : is_edge1(j, i))
-#define is_edge1(i, j) is_edge2(((i) * ((i) - 1)) / 2 + (j))
-#define is_edge2(k) (a[(k) / CHAR_BIT] & \
-      (unsigned char)(1 << ((CHAR_BIT - 1) - (k) % CHAR_BIT)))
-#endif
-
-static void sub(struct dsa *dsa, int ct, int table[], int level,
-      int weight, int l_weight)
-{     int i, j, k, curr_weight, left_weight, *p1, *p2, *newtable;
-      newtable = xcalloc(n, sizeof(int));
-      if (ct <= 0)
-      {  /* 0 or 1 elements left; include these */
-         if (ct == 0)
-         {  set[level++] = table[0];
-            weight += l_weight;
-         }
-         if (weight > record)
-         {  record = weight;
-            rec_level = level;
-            for (i = 0; i < level; i++) rec[i] = set[i];
-         }
-         goto done;
-      }
-      for (i = ct; i >= 0; i--)
-      {  if ((level == 0) && (i < ct)) goto done;
-         k = table[i];
-         if ((level > 0) && (clique[k] <= (record - weight)))
-            goto done; /* prune */
-         set[level] = k;
-         curr_weight = weight + wt[k];
-         l_weight -= wt[k];
-         if (l_weight <= (record - curr_weight))
-            goto done; /* prune */
-         p1 = newtable;
-         p2 = table;
-         left_weight = 0;
-         while (p2 < table + i)
-         {  j = *p2++;
-            if (is_edge(dsa, j, k))
-            {  *p1++ = j;
-               left_weight += wt[j];
-            }
-         }
-         if (left_weight <= (record - curr_weight)) continue;
-         sub(dsa, p1 - newtable - 1, newtable, level + 1, curr_weight,
-            left_weight);
-      }
-done: xfree(newtable);
-      return;
-}
-
-static int wclique(int _n, int w[], unsigned char _a[], int sol[])
-{     struct dsa _dsa, *dsa = &_dsa;
-      int i, j, p, max_wt, max_nwt, wth, *used, *nwt, *pos;
-      xlong_t timer;
-      n = _n;
-      wt = &w[1];
-      a = _a;
-      record = 0;
-      rec_level = 0;
-      rec = &sol[1];
-      clique = xcalloc(n, sizeof(int));
-      set = xcalloc(n, sizeof(int));
-      used = xcalloc(n, sizeof(int));
-      nwt = xcalloc(n, sizeof(int));
-      pos = xcalloc(n, sizeof(int));
-      /* start timer */
-      timer = xtime();
-      /* order vertices */
-      for (i = 0; i < n; i++)
-      {  nwt[i] = 0;
-         for (j = 0; j < n; j++)
-            if (is_edge(dsa, i, j)) nwt[i] += wt[j];
-      }
-      for (i = 0; i < n; i++)
-         used[i] = 0;
-      for (i = n-1; i >= 0; i--)
-      {  max_wt = -1;
-         max_nwt = -1;
-         for (j = 0; j < n; j++)
-         {  if ((!used[j]) && ((wt[j] > max_wt) || (wt[j] == max_wt
-               && nwt[j] > max_nwt)))
-            {  max_wt = wt[j];
-               max_nwt = nwt[j];
-               p = j;
-            }
-         }
-         pos[i] = p;
-         used[p] = 1;
-         for (j = 0; j < n; j++)
-            if ((!used[j]) && (j != p) && (is_edge(dsa, p, j)))
-               nwt[j] -= wt[p];
-      }
-      /* main routine */
-      wth = 0;
-      for (i = 0; i < n; i++)
-      {  wth += wt[pos[i]];
-         sub(dsa, i, pos, 0, 0, wth);
-         clique[pos[i]] = record;
-#if 0
-         if (utime() >= timer + 5.0)
-#else
-         if (xdifftime(xtime(), timer) >= 5.0 - 0.001)
-#endif
-         {  /* print current record and reset timer */
-            xprintf("level = %d (%d); best = %d\n", i+1, n, record);
-#if 0
-            timer = utime();
-#else
-            timer = xtime();
-#endif
-         }
-      }
-      xfree(clique);
-      xfree(set);
-      xfree(used);
-      xfree(nwt);
-      xfree(pos);
-      /* return the solution found */
-      for (i = 1; i <= rec_level; i++) sol[i]++;
-      return rec_level;
-}
-
-#undef n
-#undef wt
-#undef a
-#undef record
-#undef rec_level
-#undef rec
-#undef clique
-#undef set
-
-/*----------------------------------------------------------------------
--- lpx_clique_cut - generate cluque cut.
---
--- SYNOPSIS
---
--- #include "glplpx.h"
--- int lpx_clique_cut(LPX *lp, void *cog, int ind[], double val[]);
---
--- DESCRIPTION
---
--- The routine lpx_clique_cut generates a clique cut using the conflict
--- graph specified by the parameter cog.
---
--- If a violated clique cut has been found, it has the following form:
---
---    sum{j in J} a[j]*x[j] <= b.
---
--- Variable indices j in J are stored in elements ind[1], ..., ind[len]
--- while corresponding constraint coefficients are stored in elements
--- val[1], ..., val[len], where len is returned on exit. The right-hand
--- side b is stored in element val[0].
---
--- RETURNS
---
--- If the cutting plane has been successfully generated, the routine
--- returns 1 <= len <= n, which is the number of non-zero coefficients
--- in the inequality constraint. Otherwise, the routine returns zero. */
-
-int lpx_clique_cut(LPX *lp, void *_cog, int ind[], double val[])
-{     struct COG *cog = _cog;
-      int n = lpx_get_num_cols(lp);
-      int j, t, v, card, temp, len = 0, *w, *sol;
-      double x, sum, b, *vec;
-      /* allocate working arrays */
-      w = xcalloc(1 + 2 * cog->nb, sizeof(int));
-      sol = xcalloc(1 + 2 * cog->nb, sizeof(int));
-      vec = xcalloc(1+n, sizeof(double));
-      /* assign weights to vertices of the conflict graph */
-      for (t = 1; t <= cog->nb; t++)
-      {  j = cog->orig[t];
-         x = lpx_get_col_prim(lp, j);
-         temp = (int)(100.0 * x + 0.5);
-         if (temp < 0) temp = 0;
-         if (temp > 100) temp = 100;
-         w[t] = temp;
-         w[cog->nb + t] = 100 - temp;
-      }
-      /* find a clique of maximum weight */
-      card = wclique(2 * cog->nb, w, cog->a, sol);
-      /* compute the clique weight for unscaled values */
-      sum = 0.0;
-      for ( t = 1; t <= card; t++)
-      {  v = sol[t];
-         xassert(1 <= v && v <= 2 * cog->nb);
-         if (v <= cog->nb)
-         {  /* vertex v corresponds to binary variable x[j] */
-            j = cog->orig[v];
-            x = lpx_get_col_prim(lp, j);
-            sum += x;
-         }
-         else
-         {  /* vertex v corresponds to the complement of x[j] */
-            j = cog->orig[v - cog->nb];
-            x = lpx_get_col_prim(lp, j);
-            sum += 1.0 - x;
-         }
-      }
-      /* if the sum of binary variables and their complements in the
-         clique greater than 1, the clique cut is violated */
-      if (sum >= 1.01)
-      {  /* construct the inquality */
-         for (j = 1; j <= n; j++) vec[j] = 0;
-         b = 1.0;
-         for (t = 1; t <= card; t++)
-         {  v = sol[t];
-            if (v <= cog->nb)
-            {  /* vertex v corresponds to binary variable x[j] */
-               j = cog->orig[v];
-               xassert(1 <= j && j <= n);
-               vec[j] += 1.0;
-            }
-            else
-            {  /* vertex v corresponds to the complement of x[j] */
-               j = cog->orig[v - cog->nb];
-               xassert(1 <= j && j <= n);
-               vec[j] -= 1.0;
-               b -= 1.0;
-            }
-         }
-         xassert(len == 0);
-         for (j = 1; j <= n; j++)
-         {  if (vec[j] != 0.0)
-            {  len++;
-               ind[len] = j, val[len] = vec[j];
-            }
-         }
-         ind[0] = 0, val[0] = b;
-      }
-      /* free working arrays */
-      xfree(w);
-      xfree(sol);
-      xfree(vec);
-      /* return to the calling program */
-      return len;
-}
-
-/*----------------------------------------------------------------------
--- lpx_delete_cog - delete the conflict graph.
---
--- SYNOPSIS
---
--- #include "glplpx.h"
--- void lpx_delete_cog(void *cog);
---
--- DESCRIPTION
---
--- The routine lpx_delete_cog deletes the conflict graph, which the
--- parameter cog points to, freeing all the memory allocated to this
--- object. */
-
-void lpx_delete_cog(void *_cog)
-{     struct COG *cog = _cog;
-      xfree(cog->vert);
-      xfree(cog->orig);
-      xfree(cog->a);
-      xfree(cog);
+fail: if (fp != NULL) fclose(fp);
+      return 1;
 }
 
 /* eof */

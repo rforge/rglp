@@ -1,4 +1,4 @@
-/* glplpx01.c (obsolete api routines) */
+/* glplpx01.c (obsolete API routines) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
@@ -264,6 +264,31 @@ void lpx_delete_index(LPX *lp)
       return;
 }
 
+void lpx_scale_prob(LPX *lp)
+{     /* scale problem data */
+      switch (lpx_get_int_parm(lp, LPX_K_SCALE))
+      {  case 0:
+            /* no scaling */
+            glp_unscale_prob(lp);
+            break;
+         case 1:
+            /* equilibration scaling */
+            glp_scale_prob(lp, GLP_SF_EQ);
+            break;
+         case 2:
+            /* geometric mean scaling */
+            glp_scale_prob(lp, GLP_SF_GM);
+            break;
+         case 3:
+            /* geometric mean scaling, then equilibration scaling */
+            glp_scale_prob(lp, GLP_SF_GM | GLP_SF_EQ);
+            break;
+         default:
+            xassert(lp != lp);
+      }
+      return;
+}
+
 void lpx_unscale_prob(LPX *lp)
 {     /* unscale problem data */
       glp_unscale_prob(lp);
@@ -282,6 +307,24 @@ void lpx_set_col_stat(LPX *lp, int j, int stat)
       return;
 }
 
+void lpx_std_basis(LPX *lp)
+{     /* construct standard initial LP basis */
+      glp_std_basis(lp);
+      return;
+}
+
+void lpx_adv_basis(LPX *lp)
+{     /* construct advanced initial LP basis */
+      glp_adv_basis(lp, 0);
+      return;
+}
+
+void lpx_cpx_basis(LPX *lp)
+{     /* construct Bixby's initial LP basis */
+      glp_cpx_basis(lp);
+      return;
+}
+
 int lpx_simplex(LPX *lp)
 {     /* easy-to-use driver to the simplex method */
       glp_smcp parm;
@@ -296,7 +339,7 @@ int lpx_simplex(LPX *lp)
       }
       switch (lpx_get_int_parm(lp, LPX_K_DUAL))
       {  case 0:  parm.meth = GLP_PRIMAL;       break;
-         case 1:  parm.meth = GLP_DUALP;        break;
+         case 1:  parm.meth = GLP_DUAL;         break;
          default: xassert(lp != lp);
       }
       switch (lpx_get_int_parm(lp, LPX_K_PRICE))

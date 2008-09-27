@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpios.h"
-#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -45,7 +44,7 @@
 void glp_set_col_kind(glp_prob *mip, int j, int kind)
 {     GLPCOL *col;
       if (!(1 <= j && j <= mip->n))
-         xfault("glp_set_col_kind: j = %d; column number out of range\n"
+         xerror("glp_set_col_kind: j = %d; column number out of range\n"
             , j);
       col = mip->col[j];
       switch (kind)
@@ -61,7 +60,7 @@ void glp_set_col_kind(glp_prob *mip, int j, int kind)
                1.0)) glp_set_col_bnds(mip, j, GLP_DB, 0.0, 1.0);
             break;
          default:
-            xfault("glp_set_col_kind: j = %d; kind = %d; invalid column"
+            xerror("glp_set_col_kind: j = %d; kind = %d; invalid column"
                " kind\n", j, kind);
       }
       return;
@@ -89,7 +88,7 @@ int glp_get_col_kind(glp_prob *mip, int j)
 {     GLPCOL *col;
       int kind;
       if (!(1 <= j && j <= mip->n))
-         xfault("glp_get_col_kind: j = %d; column number out of range\n"
+         xerror("glp_get_col_kind: j = %d; column number out of range\n"
             , j);
       col = mip->col[j];
       kind = col->kind;
@@ -211,7 +210,7 @@ int glp_intopt(glp_prob *mip, const glp_iocp *parm)
       glp_tree *tree;
       int i, j, ret;
       if (mip->tree != NULL)
-         xfault("glp_intopt: problem object is already used by the MIP "
+         xerror("glp_intopt: problem object is already used by the MIP "
             "solver\n");
       if (parm == NULL)
          glp_init_iocp(&_parm);
@@ -224,51 +223,51 @@ int glp_intopt(glp_prob *mip, const glp_iocp *parm)
             parm->msg_lev == GLP_MSG_ON  ||
             parm->msg_lev == GLP_MSG_ALL ||
             parm->msg_lev == GLP_MSG_DBG))
-         xfault("glp_intopt: msg_lev = %d; invalid parameter\n",
+         xerror("glp_intopt: msg_lev = %d; invalid parameter\n",
             parm->msg_lev);
       if (!(parm->br_tech == GLP_BR_FFV ||
             parm->br_tech == GLP_BR_LFV ||
             parm->br_tech == GLP_BR_MFV ||
             parm->br_tech == GLP_BR_DTH))
-         xfault("glp_intopt: br_tech = %d; invalid parameter\n",
+         xerror("glp_intopt: br_tech = %d; invalid parameter\n",
             parm->br_tech);
       if (!(parm->bt_tech == GLP_BT_DFS ||
             parm->bt_tech == GLP_BT_BFS ||
             parm->bt_tech == GLP_BT_BLB ||
             parm->bt_tech == GLP_BT_BPH))
-         xfault("glp_intopt: bt_tech = %d; invalid parameter\n",
+         xerror("glp_intopt: bt_tech = %d; invalid parameter\n",
             parm->bt_tech);
       if (!(0.0 < parm->tol_int && parm->tol_int < 1.0))
-         xfault("glp_intopt: tol_int = %g; invalid parameter\n",
+         xerror("glp_intopt: tol_int = %g; invalid parameter\n",
             parm->tol_int);
       if (!(0.0 < parm->tol_obj && parm->tol_obj < 1.0))
-         xfault("glp_intopt: tol_obj = %g; invalid parameter\n",
+         xerror("glp_intopt: tol_obj = %g; invalid parameter\n",
             parm->tol_obj);
       if (parm->tm_lim < 0)
-         xfault("glp_intopt: tm_lim = %d; invalid parameter\n",
+         xerror("glp_intopt: tm_lim = %d; invalid parameter\n",
             parm->tm_lim);
       if (parm->out_frq < 0)
-         xfault("glp_intopt: out_frq = %d; invalid parameter\n",
+         xerror("glp_intopt: out_frq = %d; invalid parameter\n",
             parm->out_frq);
       if (parm->out_dly < 0)
-         xfault("glp_intopt: out_dly = %d; invalid parameter\n",
+         xerror("glp_intopt: out_dly = %d; invalid parameter\n",
             parm->out_dly);
       if (!(0 <= parm->cb_size && parm->cb_size <= 256))
-         xfault("glp_intopt: cb_size = %d; invalid parameter\n",
+         xerror("glp_intopt: cb_size = %d; invalid parameter\n",
             parm->cb_size);
       if (!(parm->pp_tech == GLP_PP_NONE ||
             parm->pp_tech == GLP_PP_ROOT ||
             parm->pp_tech == GLP_PP_ALL))
-         xfault("glp_intopt: pp_tech = %d; invalid parameter\n",
+         xerror("glp_intopt: pp_tech = %d; invalid parameter\n",
             parm->pp_tech);
       if (parm->mip_gap < 0.0)
-         xfault("glp_intopt: mip_gap = %g; invalid parameter\n",
+         xerror("glp_intopt: mip_gap = %g; invalid parameter\n",
             parm->mip_gap);
       if (!(parm->mir_cuts == GLP_ON || parm->mir_cuts == GLP_OFF))
-         xfault("glp_intopt: mir_cuts = %d; invalid parameter\n",
+         xerror("glp_intopt: mir_cuts = %d; invalid parameter\n",
             parm->mir_cuts);
       if (!(parm->gmi_cuts == GLP_ON || parm->gmi_cuts == GLP_OFF))
-         xfault("glp_intopt: gmi_cuts = %d; invalid parameter\n",
+         xerror("glp_intopt: gmi_cuts = %d; invalid parameter\n",
             parm->gmi_cuts);
       /* integer solution is currently undefined */
       mip->mip_stat = GLP_UNDEF;
@@ -485,7 +484,7 @@ double glp_mip_row_val(glp_prob *mip, int i)
 {     struct LPXCPS *cps = mip->cps;
       double mipx;
       if (!(1 <= i && i <= mip->m))
-         xfault("glp_mip_row_val: i = %d; row number out of range\n", i)
+         xerror("glp_mip_row_val: i = %d; row number out of range\n", i)
             ;
       mipx = mip->row[i]->mipx;
       if (cps->round && fabs(mipx) < 1e-9) mipx = 0.0;
@@ -510,7 +509,7 @@ double glp_mip_col_val(glp_prob *mip, int j)
 {     struct LPXCPS *cps = mip->cps;
       double mipx;
       if (!(1 <= j && j <= mip->n))
-         xfault("glp_mip_col_val: j = %d; column number out of range\n",
+         xerror("glp_mip_col_val: j = %d; column number out of range\n",
             j);
       mipx = mip->col[j]->mipx;
       if (cps->round && fabs(mipx) < 1e-9) mipx = 0.0;

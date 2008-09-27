@@ -24,6 +24,10 @@
 #ifndef _GLPLIB_H
 #define _GLPLIB_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "glpstd.h"
 
 typedef struct { int lo, hi; } xlong_t;
@@ -234,16 +238,6 @@ void lib_fault_hook(int (*func)(void *info, char *buf), void *info);
 void lib_xassert(const char *expr, const char *file, int line);
 /* check for logical condition */
 
-/* some processors need data to be properly aligned; the macro
-   align_boundary defines the boundary that fits for all data types;
-   the macro align_datasize enlarges the specified size of a data item
-   to provide a proper alignment of immediately following data */
-
-#define align_boundary sizeof(double)
-
-#define align_datasize(size) ((((size) + (align_boundary - 1)) / \
-      align_boundary) * align_boundary)
-
 #define xmalloc _glp_lib_xmalloc
 void *xmalloc(int size);
 /* allocate memory block */
@@ -346,6 +340,10 @@ char *strtrim(char *str);
 #define strrev _glp_lib_strrev
 char *strrev(char *s);
 /* reverse character string */
+
+#define round2n _glp_lib_round2n
+double round2n(double x);
+/* round floating-point number to nearest power of two */
 
 #define fp2rat _glp_lib_fp2rat
 int fp2rat(double x, double eps, double *p, double *q);

@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpios.h"
-#define xfault xerror
 
 /* CAUTION: DO NOT CHANGE THE LIMITS BELOW */
 
@@ -121,7 +120,7 @@ void glp_set_prob_name(glp_prob *lp, const char *name)
       }
       if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
-            xfault("glp_set_prob_name: problem name too long\n");
+            xerror("glp_set_prob_name: problem name too long\n");
          lp->name = dmp_get_atom(lp->pool, strlen(name)+1);
          strcpy(lp->name, name);
       }
@@ -153,7 +152,7 @@ void glp_set_obj_name(glp_prob *lp, const char *name)
       }
       if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
-            xfault("glp_set_obj_name: objective name too long\n");
+            xerror("glp_set_obj_name: objective name too long\n");
          lp->obj = dmp_get_atom(lp->pool, strlen(name)+1);
          strcpy(lp->obj, name);
       }
@@ -180,7 +179,7 @@ void glp_set_obj_name(glp_prob *lp, const char *name)
 
 void glp_set_obj_dir(glp_prob *lp, int dir)
 {     if (!(dir == GLP_MIN || dir == GLP_MAX))
-         xfault("glp_set_obj_dir: dir = %d; invalid direction flag\n",
+         xerror("glp_set_obj_dir: dir = %d; invalid direction flag\n",
             dir);
       lp->dir = dir;
       return;
@@ -215,10 +214,10 @@ int glp_add_rows(glp_prob *lp, int nrs)
       int m_new, i;
       /* determine new number of rows */
       if (nrs < 1)
-         xfault("glp_add_rows: nrs = %d; invalid number of rows\n",
+         xerror("glp_add_rows: nrs = %d; invalid number of rows\n",
             nrs);
       if (nrs > M_MAX - lp->m)
-         xfault("glp_add_rows: nrs = %d; too many rows\n", nrs);
+         xerror("glp_add_rows: nrs = %d; too many rows\n", nrs);
       m_new = lp->m + nrs;
       /* increase the room, if necessary */
       if (lp->m_max < m_new)
@@ -295,10 +294,10 @@ int glp_add_cols(glp_prob *lp, int ncs)
       int n_new, j;
       /* determine new number of columns */
       if (ncs < 1)
-         xfault("glp_add_cols: ncs = %d; invalid number of columns\n",
+         xerror("glp_add_cols: ncs = %d; invalid number of columns\n",
             ncs);
       if (ncs > N_MAX - lp->n)
-         xfault("glp_add_cols: ncs = %d; too many columns\n", ncs);
+         xerror("glp_add_cols: ncs = %d; too many columns\n", ncs);
       n_new = lp->n + ncs;
       /* increase the room, if necessary */
       if (lp->n_max < n_new)
@@ -361,7 +360,7 @@ int glp_add_cols(glp_prob *lp, int ncs)
 void glp_set_row_name(glp_prob *lp, int i, const char *name)
 {     GLPROW *row;
       if (!(1 <= i && i <= lp->m))
-         xfault("glp_set_row_name: i = %d; row number out of range\n",
+         xerror("glp_set_row_name: i = %d; row number out of range\n",
             i);
       row = lp->row[i];
       if (row->name != NULL)
@@ -375,7 +374,7 @@ void glp_set_row_name(glp_prob *lp, int i, const char *name)
       }
       if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
-            xfault("glp_set_row_name: i = %d; row name too long\n", i);
+            xerror("glp_set_row_name: i = %d; row name too long\n", i);
          row->name = dmp_get_atom(lp->pool, strlen(name)+1);
          strcpy(row->name, name);
          if (lp->r_tree != NULL)
@@ -408,7 +407,7 @@ void glp_set_row_name(glp_prob *lp, int i, const char *name)
 void glp_set_col_name(glp_prob *lp, int j, const char *name)
 {     GLPCOL *col;
       if (!(1 <= j && j <= lp->n))
-         xfault("glp_set_col_name: j = %d; column number out of range\n"
+         xerror("glp_set_col_name: j = %d; column number out of range\n"
             , j);
       col = lp->col[j];
       if (col->name != NULL)
@@ -422,7 +421,7 @@ void glp_set_col_name(glp_prob *lp, int j, const char *name)
       }
       if (!(name == NULL || name[0] == '\0'))
       {  if (strlen(name) > 255)
-            xfault("glp_set_col_name: j = %d; column name too long\n",
+            xerror("glp_set_col_name: j = %d; column name too long\n",
                j);
          col->name = dmp_get_atom(lp->pool, strlen(name)+1);
          strcpy(col->name, name);
@@ -473,7 +472,7 @@ void glp_set_row_bnds(glp_prob *lp, int i, int type, double lb,
       double ub)
 {     GLPROW *row;
       if (!(1 <= i && i <= lp->m))
-         xfault("glp_set_row_bnds: i = %d; row number out of range\n",
+         xerror("glp_set_row_bnds: i = %d; row number out of range\n",
             i);
       row = lp->row[i];
       row->type = type;
@@ -501,7 +500,7 @@ void glp_set_row_bnds(glp_prob *lp, int i, int type, double lb,
             if (row->stat != GLP_BS) row->stat = GLP_NS;
             break;
          default:
-            xfault("glp_set_row_bnds: i = %d; type = %d; invalid row ty"
+            xerror("glp_set_row_bnds: i = %d; type = %d; invalid row ty"
                "pe\n", i, type);
       }
       return;
@@ -544,7 +543,7 @@ void glp_set_col_bnds(glp_prob *lp, int j, int type, double lb,
       double ub)
 {     GLPCOL *col;
       if (!(1 <= j && j <= lp->n))
-         xfault("glp_set_col_bnds: j = %d; column number out of range\n"
+         xerror("glp_set_col_bnds: j = %d; column number out of range\n"
             , j);
       col = lp->col[j];
       col->type = type;
@@ -572,7 +571,7 @@ void glp_set_col_bnds(glp_prob *lp, int j, int type, double lb,
             if (col->stat != GLP_BS) col->stat = GLP_NS;
             break;
          default:
-            xfault("glp_set_col_bnds: j = %d; type = %d; invalid column"
+            xerror("glp_set_col_bnds: j = %d; type = %d; invalid column"
                " type\n", j, type);
       }
       return;
@@ -597,7 +596,7 @@ void glp_set_col_bnds(glp_prob *lp, int j, int type, double lb,
 
 void glp_set_obj_coef(glp_prob *lp, int j, double coef)
 {     if (!(0 <= j && j <= lp->n))
-         xfault("glp_set_obj_coef: j = %d; column number out of range\n"
+         xerror("glp_set_obj_coef: j = %d; column number out of range\n"
             , j);
       if (j == 0)
          lp->c0 = coef;
@@ -639,7 +638,7 @@ void glp_set_mat_row(glp_prob *lp, int i, int len, const int ind[],
       int j, k;
       /* obtain pointer to i-th row */
       if (!(1 <= i && i <= lp->m))
-         xfault("glp_set_mat_row: i = %d; row number out of range\n",
+         xerror("glp_set_mat_row: i = %d; row number out of range\n",
             i);
       row = lp->row[i];
       /* remove all existing elements from i-th row */
@@ -667,23 +666,23 @@ void glp_set_mat_row(glp_prob *lp, int i, int len, const int ind[],
       }
       /* store new contents of i-th row */
       if (!(0 <= len && len <= lp->n))
-         xfault("glp_set_mat_row: i = %d; len = %d; invalid row length "
+         xerror("glp_set_mat_row: i = %d; len = %d; invalid row length "
             "\n", i, len);
       if (len > NNZ_MAX - lp->nnz)
-         xfault("glp_set_mat_row: i = %d; len = %d; too many constraint"
+         xerror("glp_set_mat_row: i = %d; len = %d; too many constraint"
             " coefficients\n", i, len);
       for (k = 1; k <= len; k++)
       {  /* take number j of corresponding column */
          j = ind[k];
          /* obtain pointer to j-th column */
          if (!(1 <= j && j <= lp->n))
-            xfault("glp_set_mat_row: i = %d; ind[%d] = %d; column index"
+            xerror("glp_set_mat_row: i = %d; ind[%d] = %d; column index"
                " out of range\n", i, k, j);
          col = lp->col[j];
          /* if there is element with the same column index, it can only
             be found in the beginning of j-th column list */
          if (col->ptr != NULL && col->ptr->row->i == i)
-            xfault("glp_set_mat_row: i = %d; ind[%d] = %d; duplicate co"
+            xerror("glp_set_mat_row: i = %d; ind[%d] = %d; duplicate co"
                "lumn indices not allowed\n", i, k, j);
          /* create new element */
          aij = dmp_get_atom(lp->pool, sizeof(GLPAIJ)), lp->nnz++;
@@ -760,7 +759,7 @@ void glp_set_mat_col(glp_prob *lp, int j, int len, const int ind[],
       int i, k;
       /* obtain pointer to j-th column */
       if (!(1 <= j && j <= lp->n))
-         xfault("glp_set_mat_col: j = %d; column number out of range\n",
+         xerror("glp_set_mat_col: j = %d; column number out of range\n",
             j);
       col = lp->col[j];
       /* remove all existing elements from j-th column */
@@ -785,23 +784,23 @@ void glp_set_mat_col(glp_prob *lp, int j, int len, const int ind[],
       }
       /* store new contents of j-th column */
       if (!(0 <= len && len <= lp->m))
-         xfault("glp_set_mat_col: j = %d; len = %d; invalid column leng"
+         xerror("glp_set_mat_col: j = %d; len = %d; invalid column leng"
             "th\n", j, len);
       if (len > NNZ_MAX - lp->nnz)
-         xfault("glp_set_mat_col: j = %d; len = %d; too many constraint"
+         xerror("glp_set_mat_col: j = %d; len = %d; too many constraint"
             " coefficients\n", j, len);
       for (k = 1; k <= len; k++)
       {  /* take number i of corresponding row */
          i = ind[k];
          /* obtain pointer to i-th row */
          if (!(1 <= i && i <= lp->m))
-            xfault("glp_set_mat_col: j = %d; ind[%d] = %d; row index ou"
+            xerror("glp_set_mat_col: j = %d; ind[%d] = %d; row index ou"
                "t of range\n", j, k, i);
          row = lp->row[i];
          /* if there is element with the same row index, it can only be
             found in the beginning of i-th row list */
          if (row->ptr != NULL && row->ptr->col->j == j)
-            xfault("glp_set_mat_col: j = %d; ind[%d] = %d; duplicate ro"
+            xerror("glp_set_mat_col: j = %d; ind[%d] = %d; duplicate ro"
                "w indices not allowed\n", j, k, i);
          /* create new element */
          aij = dmp_get_atom(lp->pool, sizeof(GLPAIJ)), lp->nnz++;
@@ -892,22 +891,22 @@ void glp_load_matrix(glp_prob *lp, int ne, const int ia[],
       /* load the new contents of the constraint matrix and build its
          row lists */
       if (ne < 0)
-         xfault("glp_load_matrix: ne = %d; invalid number of constraint"
+         xerror("glp_load_matrix: ne = %d; invalid number of constraint"
             " coefficients\n", ne);
       if (ne > NNZ_MAX)
-         xfault("glp_load_matrix: ne = %d; too many constraint coeffici"
+         xerror("glp_load_matrix: ne = %d; too many constraint coeffici"
             "ents\n", ne);
       for (k = 1; k <= ne; k++)
       {  /* take indices of new element */
          i = ia[k], j = ja[k];
          /* obtain pointer to i-th row */
          if (!(1 <= i && i <= lp->m))
-            xfault("glp_load_matrix: ia[%d] = %d; row index out of rang"
+            xerror("glp_load_matrix: ia[%d] = %d; row index out of rang"
                "e\n", k, i);
          row = lp->row[i];
          /* obtain pointer to j-th column */
          if (!(1 <= j && j <= lp->n))
-            xfault("glp_load_matrix: ja[%d] = %d; column index out of r"
+            xerror("glp_load_matrix: ja[%d] = %d; column index out of r"
                "ange\n", k, j);
          col = lp->col[j];
          /* create new element */
@@ -933,7 +932,7 @@ void glp_load_matrix(glp_prob *lp, int ne, const int ia[],
             if (col->ptr != NULL && col->ptr->row->i == i)
             {  for (k = 1; k <= ne; k++)
                   if (ia[k] == i && ja[k] == col->j) break;
-               xfault("lpx_load_mat: ia[%d] = %d; ja[%d] = %d; duplicat"
+               xerror("glp_load_mat: ia[%d] = %d; ja[%d] = %d; duplicat"
                   "e indices not allowed\n", k, i, k, col->j);
             }
             /* add the element to the beginning of j-th column list */
@@ -1002,19 +1001,19 @@ void glp_del_rows(glp_prob *lp, int nrs, const int num[])
       int i, k, m_new;
       /* mark rows to be deleted */
       if (!(1 <= nrs && nrs <= lp->m))
-         xfault("glp_del_rows: nrs = %d; invalid number of rows\n",
+         xerror("glp_del_rows: nrs = %d; invalid number of rows\n",
             nrs);
       for (k = 1; k <= nrs; k++)
       {  /* take the number of row to be deleted */
          i = num[k];
          /* obtain pointer to i-th row */
          if (!(1 <= i && i <= lp->m))
-            xfault("glp_del_rows: num[%d] = %d; row number out of range"
+            xerror("glp_del_rows: num[%d] = %d; row number out of range"
                "\n", k, i);
          row = lp->row[i];
          /* check that the row is not marked yet */
          if (row->i == 0)
-            xfault("glp_del_rows: num[%d] = %d; duplicate row numbers n"
+            xerror("glp_del_rows: num[%d] = %d; duplicate row numbers n"
                "ot allowed\n", k, i);
          /* erase symbolic name assigned to the row */
          glp_set_row_name(lp, i, NULL);
@@ -1073,19 +1072,19 @@ void glp_del_cols(glp_prob *lp, int ncs, const int num[])
       int j, k, n_new;
       /* mark columns to be deleted */
       if (!(1 <= ncs && ncs <= lp->n))
-         xfault("glp_del_cols: ncs = %d; invalid number of columns\n",
+         xerror("glp_del_cols: ncs = %d; invalid number of columns\n",
             ncs);
       for (k = 1; k <= ncs; k++)
       {  /* take the number of column to be deleted */
          j = num[k];
          /* obtain pointer to j-th column */
          if (!(1 <= j && j <= lp->n))
-            xfault("glp_del_cols: num[%d] = %d; column number out of ra"
+            xerror("glp_del_cols: num[%d] = %d; column number out of ra"
                "nge", k, j);
          col = lp->col[j];
          /* check that the column is not marked yet */
          if (col->j == 0)
-            xfault("glp_del_cols: num[%d] = %d; duplicate column number"
+            xerror("glp_del_cols: num[%d] = %d; duplicate column number"
                "s not allowed\n", k, j);
          /* erase symbolic name assigned to the column */
          glp_set_col_name(lp, j, NULL);

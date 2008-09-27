@@ -253,8 +253,12 @@ static void check_integrality(glp_tree *tree)
          {  temp1 = lb - tree->parm->tol_int;
             temp2 = lb + tree->parm->tol_int;
             if (temp1 <= x && x <= temp2) continue;
+#if 0
             /* the lower bound must not be violated */
             xassert(x >= lb);
+#else
+            if (x < lb) continue;
+#endif
          }
          /* if the column's primal value is close to the upper bound,
             the column is integer feasible within given tolerance */
@@ -262,8 +266,12 @@ static void check_integrality(glp_tree *tree)
          {  temp1 = ub - tree->parm->tol_int;
             temp2 = ub + tree->parm->tol_int;
             if (temp1 <= x && x <= temp2) continue;
+#if 0
             /* the upper bound must not be violated */
             xassert(x <= ub);
+#else
+            if (x > ub) continue;
+#endif
          }
          /* if the column's primal value is close to nearest integer,
             the column is integer feasible within given tolerance */
@@ -1242,13 +1250,23 @@ more: /* minor loop starts here; at this point the current subproblem
          if (tree->parm->msg_lev >= GLP_MSG_DBG)
             xprintf("Found optimal solution to LP relaxation\n");
       }
+#if 0 /* 19/VIII-2008 */
       else if (p_stat == GLP_FEAS && d_stat == GLP_NOFEAS)
       {  /* LP relaxation has unbounded solution */
+#else
+      else if (d_stat == GLP_NOFEAS)
+      {  /* LP relaxation has no dual feasible solution */
+#endif
          /* since the current subproblem cannot have a larger feasible
             region than its parent, there is something wrong */
          if (tree->parm->msg_lev >= GLP_MSG_ERR)
+#if 0 /* 19/VIII-2008 */
             xprintf("ios_driver: current LP relaxation has unbounded so"
                "lution\n");
+#else
+            xprintf("ios_driver: current LP relaxation has no dual feas"
+               "ible solution\n");
+#endif
          ret = GLP_EFAIL;
          goto done;
       }

@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpios.h"
-#define xfault xerror
 
 /***********************************************************************
 *  NAME
@@ -162,13 +161,13 @@ int glp_ios_next_node(glp_tree *tree, int p)
       else
       {  /* obtain pointer to the specified subproblem */
          if (!(1 <= p && p <= tree->nslots))
-err:        xfault("glp_ios_next_node: p = %d; invalid subproblem refer"
+err:        xerror("glp_ios_next_node: p = %d; invalid subproblem refer"
                "ence number\n", p);
          node = tree->slot[p].node;
          if (node == NULL) goto err;
          /* the specified subproblem must be active */
          if (node->count != 0)
-            xfault("glp_ios_next_node: p = %d; subproblem not in the ac"
+            xerror("glp_ios_next_node: p = %d; subproblem not in the ac"
                "tive list\n", p);
          /* obtain pointer to the next active subproblem */
          node = node->next;
@@ -209,13 +208,13 @@ int glp_ios_prev_node(glp_tree *tree, int p)
       else
       {  /* obtain pointer to the specified subproblem */
          if (!(1 <= p && p <= tree->nslots))
-err:        xfault("glp_ios_prev_node: p = %d; invalid subproblem refer"
+err:        xerror("glp_ios_prev_node: p = %d; invalid subproblem refer"
                "ence number\n", p);
          node = tree->slot[p].node;
          if (node == NULL) goto err;
          /* the specified subproblem must be active */
          if (node->count != 0)
-            xfault("glp_ios_prev_node: p = %d; subproblem not in the ac"
+            xerror("glp_ios_prev_node: p = %d; subproblem not in the ac"
                "tive list\n", p);
          /* obtain pointer to the previous active subproblem */
          node = node->prev;
@@ -245,7 +244,7 @@ int glp_ios_up_node(glp_tree *tree, int p)
 {     IOSNPD *node;
       /* obtain pointer to the specified subproblem */
       if (!(1 <= p && p <= tree->nslots))
-err:     xfault("glp_ios_up_node: p = %d; invalid subproblem reference "
+err:     xerror("glp_ios_up_node: p = %d; invalid subproblem reference "
             "number\n", p);
       node = tree->slot[p].node;
       if (node == NULL) goto err;
@@ -275,7 +274,7 @@ int glp_ios_node_level(glp_tree *tree, int p)
 {     IOSNPD *node;
       /* obtain pointer to the specified subproblem */
       if (!(1 <= p && p <= tree->nslots))
-err:     xfault("glp_ios_node_level: p = %d; invalid subproblem referen"
+err:     xerror("glp_ios_node_level: p = %d; invalid subproblem referen"
             "ce number\n", p);
       node = tree->slot[p].node;
       if (node == NULL) goto err;
@@ -318,7 +317,7 @@ double glp_ios_node_bound(glp_tree *tree, int p)
 {     IOSNPD *node;
       /* obtain pointer to the specified subproblem */
       if (!(1 <= p && p <= tree->nslots))
-err:     xfault("glp_ios_node_bound: p = %d; invalid subproblem referen"
+err:     xerror("glp_ios_node_bound: p = %d; invalid subproblem referen"
             "ce number\n", p);
       node = tree->slot[p].node;
       if (node == NULL) goto err;
@@ -415,7 +414,7 @@ void *glp_ios_node_data(glp_tree *tree, int p)
 {     IOSNPD *node;
       /* obtain pointer to the specified subproblem */
       if (!(1 <= p && p <= tree->nslots))
-err:     xfault("glp_ios_node_level: p = %d; invalid subproblem referen"
+err:     xerror("glp_ios_node_level: p = %d; invalid subproblem referen"
             "ce number\n", p);
       node = tree->slot[p].node;
       if (node == NULL) goto err;
@@ -439,7 +438,7 @@ err:     xfault("glp_ios_node_level: p = %d; invalid subproblem referen"
 
 int glp_ios_can_branch(glp_tree *tree, int j)
 {     if (!(1 <= j && j <= tree->mip->n))
-         xfault("glp_ios_can_branch: j = %d; column number out of range"
+         xerror("glp_ios_can_branch: j = %d; column number out of range"
             "\n", j);
       return tree->non_int[j];
 }
@@ -470,16 +469,16 @@ int glp_ios_can_branch(glp_tree *tree, int j)
 
 void glp_ios_branch_upon(glp_tree *tree, int j, int sel)
 {     if (!(1 <= j && j <= tree->mip->n))
-         xfault("glp_ios_branch_upon: j = %d; column number out of rang"
+         xerror("glp_ios_branch_upon: j = %d; column number out of rang"
             "e\n", j);
       if (!(sel == 'D' || sel == 'U' || sel == 'N'))
-         xfault("glp_ios_branch_upon: sel = 0x%02X: branch selection fl"
+         xerror("glp_ios_branch_upon: sel = 0x%02X: branch selection fl"
             "ag invalid\n", sel);
       if (!(tree->non_int[j]))
-         xfault("glp_ios_branch_upon: j = %d; variable cannot be used t"
+         xerror("glp_ios_branch_upon: j = %d; variable cannot be used t"
             "o branch upon\n", j);
       if (tree->br_var != 0)
-         xfault("glp_ios_branch_upon: branching variable already chosen"
+         xerror("glp_ios_branch_upon: branching variable already chosen"
             "\n");
       tree->br_var = j;
       tree->br_sel = sel;
@@ -506,17 +505,17 @@ void glp_ios_select_node(glp_tree *tree, int p)
 {     IOSNPD *node;
       /* obtain pointer to the specified subproblem */
       if (!(1 <= p && p <= tree->nslots))
-err:     xfault("glp_ios_select_node: p = %d; invalid subproblem refere"
+err:     xerror("glp_ios_select_node: p = %d; invalid subproblem refere"
             "nce number\n", p);
       node = tree->slot[p].node;
       if (node == NULL) goto err;
       /* the specified subproblem must be active */
       if (node->count != 0)
-         xfault("glp_ios_select_node: p = %d; subproblem not in the act"
+         xerror("glp_ios_select_node: p = %d; subproblem not in the act"
             "ive list\n", p);
       /* no subproblem must be selected yet */
       if (tree->btrack != NULL)
-         xfault("glp_ios_select_node: subproblem already selected\n");
+         xerror("glp_ios_select_node: subproblem already selected\n");
       /* select the specified subproblem to continue the search */
       tree->btrack = node;
       return;

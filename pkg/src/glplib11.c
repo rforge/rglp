@@ -22,9 +22,8 @@
 ***********************************************************************/
 
 #include "glplib.h"
-#define xfault xerror
 
-/*----------------------------------------------------------------------
+/***********************************************************************
 *  NAME
 *
 *  str2int - convert character string to value of int type
@@ -83,7 +82,7 @@ int str2int(const char *str, int *_val)
       return 0;
 }
 
-/*----------------------------------------------------------------------
+/***********************************************************************
 *  NAME
 *
 *  str2num - convert character string to value of double type
@@ -256,6 +255,43 @@ char *strrev(char *s)
 /***********************************************************************
 *  NAME
 *
+*  round2n - round floating-point number to nearest power of two
+*
+*  SYNOPSIS
+*
+*  #include "glplib.h"
+*  double round2n(double x);
+*
+*  RETURNS
+*
+*  Given a positive floating-point value x the routine round2n returns
+*  2^n such that |x - 2^n| is minimal.
+*
+*  EXAMPLES
+*
+*  round2n(10.1) = 2^3 = 8
+*  round2n(15.3) = 2^4 = 16
+*  round2n(0.01) = 2^(-7) = 0.0078125
+*
+*  BACKGROUND
+*
+*  Let x = f * 2^e, where 0.5 <= f < 1 is a normalized fractional part,
+*  e is an integer exponent. Then, obviously, 0.5 * 2^e <= x < 2^e, so
+*  if x - 0.5 * 2^e <= 2^e - x, we choose 0.5 * 2^e = 2^(e-1), and 2^e
+*  otherwise. The latter condition can be written as 2 * x <= 1.5 * 2^e
+*  or 2 * f * 2^e <= 1.5 * 2^e or, finally, f <= 0.75. */
+
+double round2n(double x)
+{     int e;
+      double f;
+      xassert(x > 0.0);
+      f = frexp(x, &e);
+      return ldexp(1.0, f <= 0.75 ? e-1 : e);
+}
+
+/***********************************************************************
+*  NAME
+*
 *  fp2rat - convert floating-point number to rational number
 *
 *  SYNOPSIS
@@ -346,7 +382,7 @@ int fp2rat(double x, double eps, double *p, double *q)
 {     int k;
       double xk, Akm1, Ak, Bkm1, Bk, ak, bk, fk, temp;
       if (!(0.0 <= x && x < 1.0))
-         xfault("fp2rat: x = %g; number out of range\n", x);
+         xerror("fp2rat: x = %g; number out of range\n", x);
       for (k = 0; ; k++)
       {  xassert(k <= 100);
          if (k == 0)

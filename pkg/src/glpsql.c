@@ -23,10 +23,6 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #define _GLPSTD_STDIO
 #include "glpmpl.h"
 #include "glpsql.h"
@@ -222,7 +218,7 @@ int db_iodbc_close(TABDCA *dca, void *link)
 
 #else
 
-#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__WOE32__)
+#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__WOE__)
 #include <windows.h>
 #endif
 
@@ -945,7 +941,7 @@ int db_mysql_close(TABDCA *dca, void *link)
 
 #else
 
-#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__WOE32__)
+#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__WOE__)
 #include <windows.h>
 #endif
 

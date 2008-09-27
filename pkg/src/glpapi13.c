@@ -22,7 +22,6 @@
 ***********************************************************************/
 
 #include "glpapi.h"
-#define xfault xerror
 #define strerror(errno) xerrmsg()
 
 /***********************************************************************
@@ -1008,7 +1007,7 @@ static char *mps_numb(double val, char numb[12+1])
          if (e != NULL) sprintf(e+1, "%d", atoi(e+1));
          if (strlen(str) <= 12) return strcpy(numb, str);
       }
-      xfault("glp_write_mps: unable to convert floating point number %g"
+      xerror("glp_write_mps: unable to convert floating point number %g"
          " to character string\n", val);
       return NULL; /* make the compiler happy */
 }
@@ -1038,7 +1037,7 @@ static int write_mps(LPX *lp, const char *fname)
       ncols = lpx_get_num_cols(lp);
       /* the problem should contain at least one row and one column */
       if (!(nrows > 0 && ncols > 0))
-         xfault("glp_write_mps: problem has no rows/columns\n");
+         xerror("glp_write_mps: problem has no rows/columns\n");
       /* determine if the routine should output the objective row */
       make_obj = lpx_get_int_parm(lp, LPX_K_MPSOBJ);
       if (make_obj == 2)
@@ -1439,7 +1438,7 @@ int lpx_write_bas(LPX *lp, const char *fname)
       ncols = lpx_get_num_cols(lp);
       /* the problem should contain at least one row and one column */
       if (!(nrows > 0 && ncols > 0))
-         xfault("lpx_write_bas: problem has no rows/columns\n");
+         xerror("lpx_write_bas: problem has no rows/columns\n");
       /* write comment cards (if required) */
       if (lpx_get_int_parm(lp, LPX_K_MPSINFO))
       {  int dir, status;
@@ -2475,7 +2474,7 @@ static char *mps_numb(double val, char numb[12+1])
          if (e != NULL) sprintf(e+1, "%d", atoi(e+1));
          if (strlen(str) <= 12) return strcpy(numb, str);
       }
-      xfault("glp_write_mps: unable to convert floating point number %g"
+      xerror("glp_write_mps: unable to convert floating point number %g"
          " to character string\n", val);
       return NULL; /* make the compiler happy */
 }
@@ -2504,7 +2503,7 @@ static int write_freemps(LPX *lp, const char *fname)
       ncols = lpx_get_num_cols(lp);
       /* the problem should contain at least one row and one column */
       if (!(nrows > 0 && ncols > 0))
-         xfault("glp_write_mps: problem has no rows/columns\n");
+         xerror("glp_write_mps: problem has no rows/columns\n");
       /* determine if the routine should output the objective row */
       make_obj = lpx_get_int_parm(lp, LPX_K_MPSOBJ);
       if (make_obj == 2)
