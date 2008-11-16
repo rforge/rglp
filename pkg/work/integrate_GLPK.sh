@@ -106,7 +106,8 @@ if [[ $integrate ]] ; then
     if [[ -d $SOURCEDIR ]] ; then
 	rm -rf $SOURCEDIR
     fi
-	
+    echo "NOTE: watch out for abort() statements in upstream code!"
+    echo "NOTE: replacement = error(\"Execution aborted.\");"
 fi
 
 

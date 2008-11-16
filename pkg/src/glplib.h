@@ -29,6 +29,7 @@
 #endif
 
 #include "glpstd.h"
+#include "R.h"
 
 typedef struct { int lo, hi; } xlong_t;
 /* long integer data type */
