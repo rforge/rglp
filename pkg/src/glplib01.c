@@ -24,6 +24,7 @@
 #define _GLPSTD_STDIO
 #include "glpapi.h"
 #include "glplib.h"
+#include "R.h"
 
 /***********************************************************************
 *  NAME

@@ -23,6 +23,7 @@
 
 #define _GLPSTD_STDIO
 #include "glplib.h"
+#include "R.h"
 
 /***********************************************************************
 *  NAME
