@@ -255,6 +255,81 @@ char *strrev(char *s)
 /***********************************************************************
 *  NAME
 *
+*  gcd - compute greatest common divisor of two integers
+*
+*  SYNOPSIS
+*
+*  #include "glplib.h"
+*  int gcd(int x, int y);
+*
+*  RETURNS
+*
+*  The routine gcd returns gcd(x, y), the greatest common divisor of
+*  the two non-negative integers given.
+*
+*  ALGORITHM
+*
+*  The routine gcd is based on the Euclidean algorithm.
+*
+*  REFERENCES
+*
+*  Don Knuth, The Art of Computer Programming, Vol.2: Seminumerical
+*  Algorithms, 3rd Edition, Addison-Wesley, 1997. Section 4.5.2: The
+*  Greatest Common Divisor, pp. 333-56. */
+
+int gcd(int x, int y)
+{     int r;
+      xassert(x >= 0);
+      xassert(y >= 0);
+      while (y > 0)
+         r = x % y, x = y, y = r;
+      return x;
+}
+
+/***********************************************************************
+*  NAME
+*
+*  gcdn - compute greatest common divisor of n integers
+*
+*  SYNOPSIS
+*
+*  #include "glplib.h"
+*  int gcdn(int n, int x[]);
+*
+*  RETURNS
+*
+*  The routine gcdn returns gcd(x[1], x[2], ..., x[n]), the greatest
+*  common divisor of the non-negative integers given.
+*
+*  BACKGROUND
+*
+*  The routine gcdn is based on the following identity:
+*
+*     gcd(x, y, z) = gcd(gcd(x, y), z).
+*
+*  REFERENCES
+*
+*  Don Knuth, The Art of Computer Programming, Vol.2: Seminumerical
+*  Algorithms, 3rd Edition, Addison-Wesley, 1997. Section 4.5.2: The
+*  Greatest Common Divisor, pp. 333-56. */
+
+int gcdn(int n, int x[])
+{     int d, j;
+      xassert(n > 0);
+      for (j = 1; j <= n; j++)
+      {  xassert(x[j] >= 0);
+         if (j == 1)
+            d = x[1];
+         else
+            d = gcd(d, x[j]);
+         if (d == 1) break;
+      }
+      return d;
+}
+
+/***********************************************************************
+*  NAME
+*
 *  round2n - round floating-point number to nearest power of two
 *
 *  SYNOPSIS

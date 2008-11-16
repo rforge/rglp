@@ -185,7 +185,10 @@ void glp_std_basis(glp_prob *lp)
 void glp_adv_basis(glp_prob *lp, int flags)
 {     if (flags != 0)
          xerror("glp_adv_basis: flags = %d; invalid flags\n", flags);
-      adv_basis(lp);
+      if (lp->m == 0 || lp->n == 0)
+         glp_std_basis(lp);
+      else
+         adv_basis(lp);
       return;
 }
 
@@ -209,7 +212,10 @@ void glp_adv_basis(glp_prob *lp, int flags)
 *  ORSA Journal on Computing, Vol. 4, No. 3, 1992, pp. 267-84. */
 
 void glp_cpx_basis(glp_prob *lp)
-{     cpx_basis(lp);
+{     if (lp->m == 0 || lp->n == 0)
+         glp_std_basis(lp);
+      else
+         cpx_basis(lp);
       return;
 }
 

@@ -796,4 +796,40 @@ double glp_get_col_dual(glp_prob *lp, int j)
       return dual;
 }
 
+/***********************************************************************
+*  NAME
+*
+*  glp_get_unbnd_ray - determine variable causing unboundedness
+*
+*  SYNOPSIS
+*
+*  int glp_get_unbnd_ray(glp_prob *lp);
+*
+*  RETURNS
+*
+*  The routine glp_get_unbnd_ray returns the number k of a variable,
+*  which causes primal or dual unboundedness. If 1 <= k <= m, it is
+*  k-th auxiliary variable, and if m+1 <= k <= m+n, it is (k-m)-th
+*  structural variable, where m is the number of rows, n is the number
+*  of columns in the problem object. If such variable is not defined,
+*  the routine returns 0.
+*
+*  COMMENTS
+*
+*  If it is not exactly known which version of the simplex solver
+*  detected unboundedness, i.e. whether the unboundedness is primal or
+*  dual, it is sufficient to check the status of the variable reported
+*  with the routine glp_get_row_stat or glp_get_col_stat. If the
+*  variable is non-basic, the unboundedness is primal, otherwise, if
+*  the variable is basic, the unboundedness is dual (the latter case
+*  means that the problem has no primal feasible dolution). */
+
+int glp_get_unbnd_ray(glp_prob *lp)
+{     int k;
+      k = lp->some;
+      xassert(k >= 0);
+      if (k > lp->m + lp->n) k = 0;
+      return k;
+}
+
 /* eof */

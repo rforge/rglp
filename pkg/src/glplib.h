@@ -341,6 +341,14 @@ char *strtrim(char *str);
 char *strrev(char *s);
 /* reverse character string */
 
+#define gcd _glp_lib_gcd
+int gcd(int x, int y);
+/* compute greatest common divisor of two integers */
+
+#define gcdn _glp_lib_gcdn
+int gcdn(int n, int x[]);
+/* compute greatest common divisor of n integers */
+
 #define round2n _glp_lib_round2n
 double round2n(double x);
 /* round floating-point number to nearest power of two */

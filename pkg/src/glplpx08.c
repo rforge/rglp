@@ -1,7 +1,9 @@
-/* glplpx08.c */
+/* glplpx08.c (bounds sensitivity analysis routine) */
 
 /***********************************************************************
 *  This code is part of GLPK (GNU Linear Programming Kit).
+*
+*  Author: Brady Hunsaker <bkh@member.fsf.org>.
 *
 *  Copyright (C) 2000, 01, 02, 03, 04, 05, 06, 07, 08 Andrew Makhorin,
 *  Department for Applied Informatics, Moscow Aviation Institute,
@@ -21,369 +23,559 @@
 *  along with GLPK. If not, see <http://www.gnu.org/licenses/>.
 ***********************************************************************/
 
+#define _GLPSTD_ERRNO
+#define _GLPSTD_STDIO
 #include "glpapi.h"
-#include "glpssx.h"
+#include "glplib.h"
 
 /*----------------------------------------------------------------------
-// lpx_exact - easy-to-use driver to the exact simplex method.
-//
-// SYNOPSIS
-//
-// #include "glplpx.h"
-// int lpx_exact(LPX *lp);
-//
-// DESCRIPTION
-//
-// The routine lpx_exact is an easy-to-use driver to the two-phase
-// primal simplex method based on exact (bignum) arithmetic.
-//
-// RETURNS
-//
-// The routine lpx_exact returns one of the following exit codes:
-//
-// LPX_E_OK       LP problem successfully solved.
-//
-// LPX_E_FAULT    either the LP problem has no rows and/or columns, or
-//                the initial basis is invalid, or the basis matrix is
-//                exactly singular.
-//
-// LPX_E_ITLIM    iterations limit exceeded.
-//
-// LPX_E_TMLIM    time limit exceeded.
-----------------------------------------------------------------------*/
+-- lpx_print_sens_bnds - write bounds sensitivity information.
+--
+-- *Synopsis*
+--
+-- #include "glplpx.h"
+-- int lpx_print_sens_bnds(LPX *lp, char *fname);
+--
+-- *Description*
+--
+-- The routine lpx_print_sens_bnds writes the bounds for objective
+-- coefficients, right-hand-sides of constraints, and variable bounds
+-- for which the current optimal basic solution remains optimal (for LP
+-- only).
+--
+-- The LP is given by the pointer lp, and the output is written to the
+-- file specified by fname.  The current contents of the file will be
+-- overwritten.
+--
+-- Information reported by the routine lpx_print_sens_bnds is intended
+-- mainly for visual analysis.
+--
+-- *Returns*
+--
+-- If the operation was successful, the routine returns zero. Otherwise
+-- the routine prints an error message and returns non-zero. */
 
-static void set_d_eps(mpq_t x, double val)
-{     /* convert double val to rational x obtaining a more adequate
-         fraction than provided by mpq_set_d due to allowing a small
-         approximation error specified by a given relative tolerance;
-         for example, mpq_set_d would give the following
-         1/3 ~= 0.333333333333333314829616256247391... ->
-             -> 6004799503160661/18014398509481984
-         while this routine gives exactly 1/3 */
-      int s, n, j;
-      double f, p, q, eps = 1e-9;
-      mpq_t temp;
-      xassert(-DBL_MAX <= val && val <= +DBL_MAX);
-#if 1 /* 30/VII-2008 */
-      if (val == floor(val))
-      {  /* if val is integral, do not approximate */
-         mpq_set_d(x, val);
-         goto done;
-      }
+int lpx_print_sens_bnds(LPX *lp, const char *fname)
+{     FILE *fp = NULL;
+      int what, round;
+      xprintf("lpx_print_sens_bnds: writing LP problem solution bounds "
+         "to `%s'...\n", fname);
+#if 1
+      /* added by mao */
+      /* this routine needs factorization of the current basis matrix
+         which, however, does not exist if the basic solution was
+         obtained by the lp presolver; therefore we should warm up the
+         basis to be sure that the factorization is valid (note that if
+         the factorization exists, lpx_warm_up does nothing) */
+      lpx_warm_up(lp);
 #endif
-      if (val > 0.0)
-         s = +1;
-      else if (val < 0.0)
-         s = -1;
-      else
-      {  mpq_set_si(x, 0, 1);
-         goto done;
-      }
-      f = frexp(fabs(val), &n);
-      /* |val| = f * 2^n, where 0.5 <= f < 1.0 */
-      fp2rat(f, 0.1 * eps, &p, &q);
-      /* f ~= p / q, where p and q are integers */
-      mpq_init(temp);
-      mpq_set_d(x, p);
-      mpq_set_d(temp, q);
-      mpq_div(x, x, temp);
-      mpq_set_si(temp, 1, 1);
-      for (j = 1; j <= abs(n); j++)
-         mpq_add(temp, temp, temp);
-      if (n > 0)
-         mpq_mul(x, x, temp);
-      else if (n < 0)
-         mpq_div(x, x, temp);
-      mpq_clear(temp);
-      if (s < 0) mpq_neg(x, x);
-      /* check that the desired tolerance has been attained */
-      xassert(fabs(val - mpq_get_d(x)) <= eps * (1.0 + fabs(val)));
-done: return;
-}
-
-static void load_data(SSX *ssx, LPX *lp)
-{     /* load LP problem data into simplex solver workspace */
-      int m = ssx->m;
-      int n = ssx->n;
-      int nnz = ssx->A_ptr[n+1]-1;
-      int j, k, type, loc, len, *ind;
-      double lb, ub, coef, *val;
-      xassert(lpx_get_num_rows(lp) == m);
-      xassert(lpx_get_num_cols(lp) == n);
-      xassert(lpx_get_num_nz(lp) == nnz);
-      /* types and bounds of rows and columns */
-      for (k = 1; k <= m+n; k++)
-      {  if (k <= m)
-         {  type = lpx_get_row_type(lp, k);
-            lb = lpx_get_row_lb(lp, k);
-            ub = lpx_get_row_ub(lp, k);
-         }
-         else
-         {  type = lpx_get_col_type(lp, k-m);
-            lb = lpx_get_col_lb(lp, k-m);
-            ub = lpx_get_col_ub(lp, k-m);
-         }
-         switch (type)
-         {  case LPX_FR: type = SSX_FR; break;
-            case LPX_LO: type = SSX_LO; break;
-            case LPX_UP: type = SSX_UP; break;
-            case LPX_DB: type = SSX_DB; break;
-            case LPX_FX: type = SSX_FX; break;
-            default: xassert(type != type);
-         }
-         ssx->type[k] = type;
-         set_d_eps(ssx->lb[k], lb);
-         set_d_eps(ssx->ub[k], ub);
-      }
-      /* optimization direction */
-      switch (lpx_get_obj_dir(lp))
-      {  case LPX_MIN: ssx->dir = SSX_MIN; break;
-         case LPX_MAX: ssx->dir = SSX_MAX; break;
-         default: xassert(lp != lp);
-      }
-      /* objective coefficients */
-      for (k = 0; k <= m+n; k++)
-      {  if (k == 0)
-            coef = lpx_get_obj_coef(lp, 0);
-         else if (k <= m)
-            coef = 0.0;
-         else
-            coef = lpx_get_obj_coef(lp, k-m);
-         set_d_eps(ssx->coef[k], coef);
-      }
-      /* constraint coefficients */
-      ind = xcalloc(1+m, sizeof(int));
-      val = xcalloc(1+m, sizeof(double));
-      loc = 0;
-      for (j = 1; j <= n; j++)
-      {  ssx->A_ptr[j] = loc+1;
-         len = lpx_get_mat_col(lp, j, ind, val);
-         for (k = 1; k <= len; k++)
-         {  loc++;
-            ssx->A_ind[loc] = ind[k];
-            set_d_eps(ssx->A_val[loc], val[k]);
-         }
-      }
-      xassert(loc == nnz);
-      xfree(ind);
-      xfree(val);
-      return;
-}
-
-static int load_basis(SSX *ssx, LPX *lp)
-{     /* load current LP basis into simplex solver workspace */
-      int m = ssx->m;
-      int n = ssx->n;
-      int *type = ssx->type;
-      int *stat = ssx->stat;
-      int *Q_row = ssx->Q_row;
-      int *Q_col = ssx->Q_col;
-      int i, j, k;
-      xassert(lpx_get_num_rows(lp) == m);
-      xassert(lpx_get_num_cols(lp) == n);
-      /* statuses of rows and columns */
-      for (k = 1; k <= m+n; k++)
-      {  if (k <= m)
-            stat[k] = lpx_get_row_stat(lp, k);
-         else
-            stat[k] = lpx_get_col_stat(lp, k-m);
-         switch (stat[k])
-         {  case LPX_BS:
-               stat[k] = SSX_BS;
-               break;
-            case LPX_NL:
-               stat[k] = SSX_NL;
-               xassert(type[k] == SSX_LO || type[k] == SSX_DB);
-               break;
-            case LPX_NU:
-               stat[k] = SSX_NU;
-               xassert(type[k] == SSX_UP || type[k] == SSX_DB);
-               break;
-            case LPX_NF:
-               stat[k] = SSX_NF;
-               xassert(type[k] == SSX_FR);
-               break;
-            case LPX_NS:
-               stat[k] = SSX_NS;
-               xassert(type[k] == SSX_FX);
-               break;
-            default:
-               xassert(stat != stat);
-         }
-      }
-      /* build permutation matix Q */
-      i = j = 0;
-      for (k = 1; k <= m+n; k++)
-      {  if (stat[k] == SSX_BS)
-         {  i++;
-            if (i > m) return 1;
-            Q_row[k] = i, Q_col[i] = k;
-         }
-         else
-         {  j++;
-            if (j > n) return 1;
-            Q_row[k] = m+j, Q_col[m+j] = k;
-         }
-      }
-      xassert(i == m && j == n);
-      return 0;
-}
-
-int lpx_exact(LPX *lp)
-{     SSX *ssx;
-      int m = lpx_get_num_rows(lp);
-      int n = lpx_get_num_cols(lp);
-      int nnz = lpx_get_num_nz(lp);
-      int i, j, k, type, pst, dst, ret, *stat;
-      double lb, ub, *prim, *dual, sum;
-      /* the problem must have at least one row and one column */
-      if (!(m > 0 && n > 0))
-      {  xprintf("lpx_exact: problem has no rows/columns\n");
-         return LPX_E_FAULT;
-      }
-      /* check that all double-bounded variables have correct bounds */
-      for (k = 1; k <= m+n; k++)
-      {  if (k <= m)
-         {  type = lpx_get_row_type(lp, k);
-            lb = lpx_get_row_lb(lp, k);
-            ub = lpx_get_row_ub(lp, k);
-         }
-         else
-         {  type = lpx_get_col_type(lp, k-m);
-            lb = lpx_get_col_lb(lp, k-m);
-            ub = lpx_get_col_ub(lp, k-m);
-         }
-         if (type == LPX_DB && lb >= ub)
-         {  xprintf("lpx_exact: %s %d has invalid bounds\n",
-               k <= m ? "row" : "column", k <= m ? k : k-m);
-            return LPX_E_FAULT;
-         }
-      }
-      /* create the simplex solver workspace */
-      xprintf("lpx_exact: %d rows, %d columns, %d non-zeros\n",
-         m, n, nnz);
-#ifdef HAVE_GMP
-      xprintf("GNU MP bignum library is being used\n");
+#if 0 /* 21/XII-2003 by mao */
+      if (lp->b_stat == LPX_B_UNDEF)
 #else
-      xprintf("GLPK bignum module is being used\n");
-      xprintf("(Consider installing GNU MP to attain a much better perf"
-         "ormance.)\n");
+      if (!lpx_is_b_avail(lp))
 #endif
-      ssx = ssx_create(m, n, nnz);
-      /* load LP problem data into the workspace */
-      load_data(ssx, lp);
-      /* load current LP basis into the workspace */
-      if (load_basis(ssx, lp))
-      {  xprintf("lpx_exact: initial LP basis is invalid\n");
-         ret = LPX_E_FAULT;
-         goto done;
+      {  xprintf("lpx_print_sens_bnds: basis information not available "
+            "(may be a presolve issue)\n");
+         goto fail;
       }
-      /* inherit some control parameters from the LP object */
-      ssx->it_lim = lpx_get_int_parm(lp, LPX_K_ITLIM);
-      ssx->it_cnt = lpx_get_int_parm(lp, LPX_K_ITCNT);
-      ssx->tm_lim = lpx_get_real_parm(lp, LPX_K_TMLIM);
-      ssx->out_frq = 5.0;
-      ssx->tm_beg = xtime();
-      ssx->tm_lag = xlset(0);
-      /* solve LP */
-      ret = ssx_driver(ssx);
-      /* copy back some statistics to the LP object */
-      lpx_set_int_parm(lp, LPX_K_ITLIM, ssx->it_lim);
-      lpx_set_int_parm(lp, LPX_K_ITCNT, ssx->it_cnt);
-      lpx_set_real_parm(lp, LPX_K_TMLIM, ssx->tm_lim);
-      /* analyze the return code */
-      switch (ret)
-      {  case 0:
-            /* optimal solution found */
-            pst = LPX_P_FEAS, dst = LPX_D_FEAS;
-            break;
-         case 1:
-            /* problem has no feasible solution */
-            pst = LPX_P_NOFEAS, dst = LPX_D_INFEAS;
-            break;
-         case 2:
-            /* problem has unbounded solution */
-            pst = LPX_P_FEAS, dst = LPX_D_NOFEAS;
-            break;
-         case 3:
-            /* iterations limit exceeded (phase I) */
-            pst = LPX_P_INFEAS, dst = LPX_D_INFEAS;
-            break;
-         case 4:
-            /* iterations limit exceeded (phase II) */
-            pst = LPX_P_FEAS, dst = LPX_D_INFEAS;
-            break;
-         case 5:
-            /* time limit exceeded (phase I) */
-            pst = LPX_P_INFEAS, dst = LPX_D_INFEAS;
-            break;
-         case 6:
-            /* time limit exceeded (phase II) */
-            pst = LPX_P_FEAS, dst = LPX_D_INFEAS;
-            break;
-         case 7:
-            /* initial basis matrix is singular */
-            ret = LPX_E_FAULT;
-            goto done;
-         default:
-            xassert(ret != ret);
+      fp = fopen(fname, "w");
+      if (fp == NULL)
+      {  xprintf("lpx_print_sens_bnds: can't create `%s' - %s\n",
+            fname, strerror(errno));
+         goto fail;
       }
-      ret = LPX_E_OK;
-      /* obtain final basic solution components */
-      stat = xcalloc(1+m+n, sizeof(int));
-      prim = xcalloc(1+m+n, sizeof(double));
-      dual = xcalloc(1+m+n, sizeof(double));
-      for (k = 1; k <= m+n; k++)
-      {  if (ssx->stat[k] == SSX_BS)
-         {  i = ssx->Q_row[k]; /* x[k] = xB[i] */
-            xassert(1 <= i && i <= m);
-            stat[k] = LPX_BS;
-            prim[k] = mpq_get_d(ssx->bbar[i]);
-            dual[k] = 0.0;
-         }
-         else
-         {  j = ssx->Q_row[k] - m; /* x[k] = xN[j] */
-            xassert(1 <= j && j <= n);
-            switch (ssx->stat[k])
-            {  case SSX_NF:
-                  stat[k] = LPX_NF;
-                  prim[k] = 0.0;
-                  break;
-               case SSX_NL:
-                  stat[k] = LPX_NL;
-                  prim[k] = mpq_get_d(ssx->lb[k]);
-                  break;
-               case SSX_NU:
-                  stat[k] = LPX_NU;
-                  prim[k] = mpq_get_d(ssx->ub[k]);
-                  break;
-               case SSX_NS:
-                  stat[k] = LPX_NS;
-                  prim[k] = mpq_get_d(ssx->lb[k]);
-                  break;
-               default:
-                  xassert(ssx != ssx);
+      /* problem name */
+      {  const char *name;
+         name = lpx_get_prob_name(lp);
+         if (name == NULL) name = "";
+         fprintf(fp, "%-12s%s\n", "Problem:", name);
+      }
+      /* number of rows (auxiliary variables) */
+      {  int nr;
+         nr = lpx_get_num_rows(lp);
+         fprintf(fp, "%-12s%d\n", "Rows:", nr);
+      }
+      /* number of columns (structural variables) */
+      {  int nc;
+         nc = lpx_get_num_cols(lp);
+         fprintf(fp, "%-12s%d\n", "Columns:", nc);
+      }
+      /* number of non-zeros (constraint coefficients) */
+      {  int nz;
+         nz = lpx_get_num_nz(lp);
+         fprintf(fp, "%-12s%d\n", "Non-zeros:", nz);
+      }
+      /* solution status */
+      {  int status;
+         status = lpx_get_status(lp);
+         fprintf(fp, "%-12s%s\n", "Status:",
+            status == LPX_OPT    ? "OPTIMAL" :
+            status == LPX_FEAS   ? "FEASIBLE" :
+            status == LPX_INFEAS ? "INFEASIBLE (INTERMEDIATE)" :
+            status == LPX_NOFEAS ? "INFEASIBLE (FINAL)" :
+            status == LPX_UNBND  ? "UNBOUNDED" :
+            status == LPX_UNDEF  ? "UNDEFINED" : "???");
+      }
+      /* explanation/warning */
+      {  fprintf(fp, "\nExplanation:  This file presents amounts by whi"
+            "ch objective coefficients,\n");
+         fprintf(fp, "constraint bounds, and variable bounds may be cha"
+            "nged in the original problem\n");
+         fprintf(fp, "while the optimal basis remains the same.  Note t"
+            "hat the optimal solution\n");
+         fprintf(fp, "and objective value may change even though the ba"
+            "sis remains the same.\n");
+         fprintf(fp, "These bounds assume that all parameters remain fi"
+            "xed except the one in\n");
+         fprintf(fp, "question.  If more than one parameter is changed,"
+            " it is possible for the\n");
+         fprintf(fp, "optimal basis to change even though each paramete"
+            "r stays within its bounds.\n");
+         fprintf(fp, "For more details, consult a text on linear progra"
+            "mming.\n");
+      }
+      /* Sensitivity ranges if solution was optimal */
+      {  int status;
+         status = lpx_get_status(lp);
+         if (status == LPX_OPT)
+         {  int i,j,k,m,n;
+            int dir;
+            double max_inc, max_dec;
+            int *index;
+            double *val;
+            fprintf(fp, "\nObjective Coefficient Analysis\n");
+            fprintf(fp, "   No.  Column name St    Value       Max incr"
+               "ease  Max decrease\n");
+            fprintf(fp, "------ ------------ -- ------------- ---------"
+               "---- ------------- \n");
+            n = lpx_get_num_cols(lp);
+            m = lpx_get_num_rows(lp);
+            dir = lpx_get_obj_dir(lp);
+            /* allocate memory for index and val arrays */
+            index = xcalloc(1+n+m, sizeof(int));
+            val   = xcalloc(1+n+m, sizeof(double));
+            for (j = 1; j <= n; j++)
+            {  const char *name;
+               int typx, tagx;
+               double lb, ub, vx, dx;
+               name = lpx_get_col_name(lp, j);
+               if (name == NULL) name = "";
+               lpx_get_col_bnds(lp, j, &typx, &lb, &ub);
+#if 0 /* 21/XII-2003 by mao */
+               round = lp->round, lp->round = 1;
+               lpx_get_col_info(lp, j, &tagx, &vx, &dx);
+               lp->round = round;
+#else
+               round = lpx_get_int_parm(lp, LPX_K_ROUND);
+               lpx_set_int_parm(lp, LPX_K_ROUND, 1);
+               lpx_get_col_info(lp, j, &tagx, &vx, &dx);
+               lpx_set_int_parm(lp, LPX_K_ROUND, round);
+#endif
+               /* row/column ordinal number */
+               fprintf(fp, "%6d ", j);
+               /* row column/name */
+               if (strlen(name) <= 12)
+                  fprintf(fp, "%-12s ", name);
+               else
+                  fprintf(fp, "%s\n%20s", name, "");
+               /* row/column status */
+               fprintf(fp, "%s ",
+                  tagx == LPX_BS ? "B " :
+                  tagx == LPX_NL ? "NL" :
+                  tagx == LPX_NU ? "NU" :
+                  tagx == LPX_NF ? "NF" :
+                  tagx == LPX_NS ? "NS" : "??");
+               /* objective coefficient */
+               fprintf(fp, "%13.6g ", lpx_get_obj_coef(lp, j));
+               if (tagx == LPX_NL)
+               {  if (dir==LPX_MIN)
+                  {  /* reduced cost must be positive */
+                     max_inc = DBL_MAX; /* really represents infinity */
+                     max_dec = dx;
+                  }
+                  else
+                  {  /* reduced cost must be negative */
+                     max_inc = -dx;
+                     max_dec = DBL_MAX; /* means infinity */
+                  }
+               }
+               if (tagx == LPX_NU)
+               {  if (dir==LPX_MIN)
+                  {  /* reduced cost must be negative */
+                     max_inc = -dx;
+                     max_dec = DBL_MAX;
+                  }
+                  else
+                  {  max_inc = DBL_MAX;
+                     max_dec = dx;
+                  }
+               }
+               if (tagx == LPX_NF)
+               {  /* can't change nonbasic free variables' cost */
+                  max_inc = 0.0;
+                  max_dec = 0.0;
+               }
+               if (tagx == LPX_NS)
+               {  /* doesn't matter what happens to the cost */
+                  max_inc = DBL_MAX;
+                  max_dec = DBL_MAX;
+               }
+               if (tagx == LPX_BS)
+               {  int len;
+                  /* We need to see how this objective coefficient
+                     affects reduced costs of other variables */
+                  len = lpx_eval_tab_row(lp, m+j, index, val);
+                  max_inc = DBL_MAX;
+                  max_dec = DBL_MAX;
+                  for (i = 1; i <= len; i++)
+                  {  /*int stat;*/
+                     int tagx2;
+                     double vx2, dx2;
+                     double delta;
+                     if (index[i]>m)
+                        lpx_get_col_info(lp, index[i]-m, &tagx2, &vx2,
+                           &dx2);
+                     else
+                        lpx_get_row_info(lp, index[i], &tagx2, &vx2,
+                           &dx2);
+                     if (tagx2 == LPX_NL)
+                     {  if (val[i] != 0.0)
+                        {  delta = dx2 / val[i];
+                           if (delta < 0 && -delta < max_inc)
+                              max_inc = -delta;
+                           else if (delta >0 && delta < max_dec)
+                              max_dec = delta;
+                        }
+                     }
+                     if (tagx2 == LPX_NU)
+                     {  if (val[i] != 0.0)
+                        {  delta = dx2 / val[i];
+                           if (delta < 0 && -delta < max_inc)
+                              max_inc = -delta;
+                           else if (delta > 0 && delta < max_dec)
+                              max_dec = delta;
+                        }
+                     }
+                     if (tagx2 == LPX_NF)
+                     {  if (val[i] != 0.0)
+                        {  max_inc = 0.0;
+                           max_dec = 0.0;
+                        }
+                     }
+                  }
+               }
+               if (max_inc == -0.0) max_inc = 0.0;
+               if (max_dec == -0.0) max_dec = 0.0;
+               if (max_inc == DBL_MAX)
+                  fprintf(fp, "%13s ", "infinity");
+               else if (max_inc < 1.0e-12 && max_inc > 0)
+                  fprintf(fp, "%13s ", "< eps");
+               else
+                  fprintf(fp, "%13.6g ", max_inc);
+               if (max_dec == DBL_MAX)
+                  fprintf(fp, "%13s ", "infinity");
+               else if (max_dec < 1.0e-12 && max_dec > 0)
+                  fprintf(fp, "%13s ", "< eps");
+               else
+                  fprintf(fp, "%13.6g ", max_dec);
+               fprintf(fp, "\n");
             }
-            dual[k] = mpq_get_d(ssx->cbar[j]);
+            for (what = 1; what <= 2; what++)
+            {  int ij, mn;
+               fprintf(fp, "\n");
+               fprintf(fp, "%s Analysis\n",
+                  what==1? "Constraint Bounds":"Variable Bounds");
+               fprintf(fp, "   No. %12s St    Value       Max increase "
+                  " Max decrease\n",
+                  what==1 ? " Row name":"Column name");
+               fprintf(fp, "------ ------------ -- ------------- ------"
+                  "------- ------------- \n");
+               mn = what==1 ? m : n;
+               for (ij = 1; ij <= mn; ij++)
+               {  const char *name;
+                  int typx, tagx;
+                  double lb, ub, vx, dx;
+                  if (what==1)
+                     name = lpx_get_row_name(lp, ij);
+                  else
+                     name = lpx_get_col_name(lp, ij);
+                  if (name == NULL) name = "";
+#if 0 /* 21/XII-2003 by mao */
+                  if (what==1)
+                  {  lpx_get_row_bnds(lp, ij, &typx, &lb, &ub);
+                     round = lp->round, lp->round = 1;
+                     lpx_get_row_info(lp, ij, &tagx, &vx, &dx);
+                     lp->round = round;
+                  }
+                  else
+                  {  lpx_get_col_bnds(lp, ij, &typx, &lb, &ub);
+                     round = lp->round, lp->round = 1;
+                     lpx_get_col_info(lp, ij, &tagx, &vx, &dx);
+                     lp->round = round;
+                  }
+#else
+                  round = lpx_get_int_parm(lp, LPX_K_ROUND);
+                  lpx_set_int_parm(lp, LPX_K_ROUND, 1);
+                  if (what==1)
+                  {  lpx_get_row_bnds(lp, ij, &typx, &lb, &ub);
+                     lpx_get_row_info(lp, ij, &tagx, &vx, &dx);
+                  }
+                  else
+                  {  lpx_get_col_bnds(lp, ij, &typx, &lb, &ub);
+                     lpx_get_col_info(lp, ij, &tagx, &vx, &dx);
+                  }
+                  lpx_set_int_parm(lp, LPX_K_ROUND, round);
+#endif
+                  /* row/column ordinal number */
+                  fprintf(fp, "%6d ", ij);
+                  /* row column/name */
+                  if (strlen(name) <= 12)
+                     fprintf(fp, "%-12s ", name);
+                  else
+                     fprintf(fp, "%s\n%20s", name, "");
+                  /* row/column status */
+                  fprintf(fp, "%s ",
+                     tagx == LPX_BS ? "B " :
+                     tagx == LPX_NL ? "NL" :
+                     tagx == LPX_NU ? "NU" :
+                     tagx == LPX_NF ? "NF" :
+                     tagx == LPX_NS ? "NS" : "??");
+                  fprintf(fp, "\n");
+                  /* first check lower bound */
+                  if (typx == LPX_LO || typx == LPX_DB ||
+                      typx == LPX_FX)
+                  {  int at_lower;
+                     at_lower = 0;
+                     if (tagx == LPX_BS || tagx == LPX_NU)
+                     {  max_inc = vx - lb;
+                        max_dec = DBL_MAX;
+                     }
+                     if (tagx == LPX_NS)
+                     {  max_inc = 0.0;
+                        max_dec = 0.0;
+                        if (dir == LPX_MIN && dx > 0) at_lower = 1;
+                        if (dir == LPX_MAX && dx < 0) at_lower = 1;
+                     }
+                     if (tagx == LPX_NL || at_lower == 1)
+                     {  int len;
+                        /* we have to see how it affects basic
+                           variables */
+                        len = lpx_eval_tab_col(lp, what==1?ij:ij+m,
+                           index, val);
+                        k = lpx_prim_ratio_test(lp, len, index, val, 1,
+                           10e-7);
+                        max_inc = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is upper bound */
+                           if (alpha > 0)
+                              max_inc = (ub2 - vx2)/ alpha;
+                           else
+                              max_inc = (lb2 - vx2)/ alpha;
+                        }
+                        /* now check lower bound */
+                        k = lpx_prim_ratio_test(lp, len, index, val, -1,
+                           10e-7);
+                        max_dec = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is lower bound */
+                           if (alpha > 0)
+                              max_dec = (vx2 - lb2)/ alpha;
+                           else
+                              max_dec = (vx2 - ub2)/ alpha;
+                        }
+                     }
+                     /* bound */
+                     if (typx == LPX_DB || typx == LPX_FX)
+                     {  if (max_inc > ub - lb)
+                           max_inc = ub - lb;
+                     }
+                     fprintf(fp, "         LOWER         %13.6g ", lb);
+                     if (max_inc == -0.0) max_inc = 0.0;
+                     if (max_dec == -0.0) max_dec = 0.0;
+                     if (max_inc == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_inc < 1.0e-12 && max_inc > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_inc);
+                     if (max_dec == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_dec < 1.0e-12 && max_dec > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_dec);
+                     fprintf(fp, "\n");
+                  }
+                  /* now check upper bound */
+                  if (typx == LPX_UP || typx == LPX_DB ||
+                     typx == LPX_FX)
+                  {  int at_upper;
+                     at_upper = 0;
+                     if (tagx == LPX_BS || tagx == LPX_NL)
+                     {  max_inc = DBL_MAX;
+                        max_dec = ub - vx;
+                     }
+                     if (tagx == LPX_NS)
+                     {  max_inc = 0.0;
+                        max_dec = 0.0;
+                        if (dir == LPX_MIN && dx < 0) at_upper = 1;
+                        if (dir == LPX_MAX && dx > 0) at_upper = 1;
+                     }
+                     if (tagx == LPX_NU || at_upper == 1)
+                     {  int len;
+                        /* we have to see how it affects basic
+                           variables */
+                        len = lpx_eval_tab_col(lp, what==1?ij:ij+m,
+                           index, val);
+                        k = lpx_prim_ratio_test(lp, len, index, val, 1,
+                           10e-7);
+                        max_inc = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is upper bound */
+                           if (alpha > 0)
+                              max_inc = (ub2 - vx2)/ alpha;
+                           else
+                              max_inc = (lb2 - vx2)/ alpha;
+                        }
+                        /* now check lower bound */
+                        k = lpx_prim_ratio_test(lp, len, index, val, -1,
+                           10e-7);
+                        max_dec = DBL_MAX;
+                        if (k != 0)
+                        {  /*int stat;*/
+                           int tagx2, typx2;
+                           double vx2, dx2, lb2, ub2;
+                           /*double delta;*/
+                           double alpha;
+                           int l;
+                           for (l = 1; l <= len; l++)
+                              if (index[l] == k) alpha = val[l];
+                           if (k>m)
+                           {  lpx_get_col_info(lp, k-m, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_col_bnds(lp, k-m, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           else
+                           {  lpx_get_row_info(lp, k, &tagx2, &vx2,
+                                 &dx2);
+                              lpx_get_row_bnds(lp, k, &typx2, &lb2,
+                                 &ub2);
+                           }
+                           /* Check which direction;
+                              remember this is lower bound */
+                           if (alpha > 0)
+                              max_dec = (vx2 - lb2)/ alpha;
+                           else
+                              max_dec = (vx2 - ub2)/ alpha;
+                        }
+                     }
+                     if (typx == LPX_DB || typx == LPX_FX)
+                     {  if (max_dec > ub - lb)
+                           max_dec = ub - lb;
+                     }
+                     /* bound */
+                     fprintf(fp, "         UPPER         %13.6g ", ub);
+                     if (max_inc == -0.0) max_inc = 0.0;
+                     if (max_dec == -0.0) max_dec = 0.0;
+                     if (max_inc == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_inc < 1.0e-12 && max_inc > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_inc);
+                     if (max_dec == DBL_MAX)
+                        fprintf(fp, "%13s ", "infinity");
+                     else if (max_dec < 1.0e-12 && max_dec > 0)
+                        fprintf(fp, "%13s ", "< eps");
+                     else
+                        fprintf(fp, "%13.6g ", max_dec);
+                     fprintf(fp, "\n");
+                  }
+               }
+            }
+            /* free the memory we used */
+            xfree(index);
+            xfree(val);
          }
+         else fprintf(fp, "No range information since solution is not o"
+            "ptimal.\n");
       }
-      /* and store them into the LP object */
-      pst = pst - LPX_P_UNDEF + GLP_UNDEF;
-      dst = dst - LPX_D_UNDEF + GLP_UNDEF;
-      for (k = 1; k <= m+n; k++)
-         stat[k] = stat[k] - LPX_BS + GLP_BS;
-      sum = lpx_get_obj_coef(lp, 0);
-      for (j = 1; j <= n; j++)
-         sum += lpx_get_obj_coef(lp, j) * prim[m+j];
-      glp_put_solution(lp, 1, &pst, &dst, &sum,
-         &stat[0], &prim[0], &dual[0], &stat[m], &prim[m], &dual[m]);
-      xfree(stat);
-      xfree(prim);
-      xfree(dual);
-done: /* delete the simplex solver workspace */
-      ssx_delete(ssx);
-      /* return to the application program */
-      return ret;
+      fprintf(fp, "\n");
+      fprintf(fp, "End of output\n");
+      fflush(fp);
+      if (ferror(fp))
+      {  xprintf("lpx_print_sens_bnds: can't write to `%s' - %s\n",
+            fname, strerror(errno));
+         goto fail;
+      }
+      fclose(fp);
+      return 0;
+fail: if (fp != NULL) fclose(fp);
+      return 1;
 }
 
 /* eof */
