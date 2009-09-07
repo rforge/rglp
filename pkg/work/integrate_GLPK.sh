@@ -5,9 +5,9 @@
 ## latest glpk tarball (Austrian mirror out of date)
 #URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
 URL="ftp://ftp.gnu.org/gnu/glpk/"
-latest="glpk-4.38.tar.gz"
+latest="glpk-4.39.tar.gz"
 ## where to put source files and headers
-DESTINATION=../src
+DESTINATION=../src/GLPK
 
 ## --------------------------------------------
 ## Usage
@@ -101,8 +101,22 @@ if [[ $integrate ]] ; then
 
     tar xzf $sources
 
-    cp $SOURCEDIR/include/glp* $DESTINATION
-    cp $SOURCEDIR/src/glp*     $DESTINATION
+    if [[ ! -d ${DESTINATION} ]] ; then
+	mkdir -p $DESTINATION
+    fi
+
+     cp -a $SOURCEDIR/* $DESTINATION
+    
+#    cp -a $SOURCEDIR/configure $DESTINATION/
+#    mkdir $DESTINATION/include
+#    cp -a $SOURCEDIR/include/glp* $DESTINATION/include
+#    mkdir $DESTINATION/src
+#    cp -a $SOURCEDIR/src/glp*     $DESTINATION/src
+#    mkdir $DESTINATION/src/amd
+#    cp -a $SOURCEDIR/src/amd/amd*     $DESTINATION/src/amd
+#    mkdir $DESTINATION/src/colamd
+#    cp -a $SOURCEDIR/src/colamd/colamd*     $DESTINATION/src/colamd
+
     if [[ -d $SOURCEDIR ]] ; then
 	rm -rf $SOURCEDIR
     fi
@@ -112,7 +126,9 @@ fi
 
 
 if [[ $clean ]] ; then
-    rm $DESTINATION/glp*
+    if [[ -d ${DESTINATION} ]] ; then
+	rm -rf $DESTINATION/*
+    fi
 fi
 
 echo "done."
