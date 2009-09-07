@@ -1,3 +1,6 @@
+* version string 4.39 
+  since version 4.39 of the GLPK library the wrong version number is
+   printed: 4.29
 
 * duplicated entries in constraint matrix
 	if duplicated entries in the constraint matrix occur then before exiting look if the 
@@ -6,8 +9,7 @@
 	something similar like stop().
    Nevertheless a function like check constraint matrix for sanity
    should be included.
-   UPDATE: partially solved: added R.h in glplib.h and replaced
-   abort(); with error("Stopped.").
+   UPDATE: partially solved: replaced abort(); with xerror("Execution aborted.").
 
 * data structure for read_file
    doesn't work yet to solve a read problem as there is something wrong

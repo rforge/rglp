@@ -120,8 +120,9 @@ if [[ $integrate ]] ; then
     if [[ -d $SOURCEDIR ]] ; then
 	rm -rf $SOURCEDIR
     fi
-    echo "NOTE: watch out for abort() statements in upstream code!"
-    echo "NOTE: replacement = error(\"Execution aborted.\");"
+    echo "Patching upstream code: abort() statements replaced by xerror()!"
+    cat ./glplib01.patch | patch -p0 $DESTINATION/src/glplib01.c
+    cat ./glplib03.patch | patch -p0 $DESTINATION/src/glplib03.c
 fi
 
 
