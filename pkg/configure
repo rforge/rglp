@@ -51,7 +51,7 @@ R="${R_HOME}/bin/R"
 	F77="`${R} CMD config F77`" \
 	FLIBS="`${R} CMD config FLIBS`")
     GLPK_INCLUDE_PATH="-IGLPK/include"
-    GLPK_LIB_PATH="-LGLPK/.libs"
+    GLPK_LIB_PATH="-LGLPK/src/.libs"
     GLPK_TS="GLPK.ts"
 ##fi
 

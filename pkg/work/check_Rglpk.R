@@ -33,7 +33,7 @@ MPS <- Rglpk_read_file(file = "./misc07.mps", type = "MPS_free",
 MPS
 
 ## solve problem
-Rglpk:::.Rglpk_solve(MPS, control = list(verbose = verbose))
+Rglpk:::.ROI_glpk_solve(MPS, control = list(verbose = verbose))
 
 
 ## check if Rglpk still reads file in CPLEX/LP format
@@ -41,4 +41,4 @@ CPLEX <- Rglpk_read_file(file = "./u5.cplx", type = "CPLEX_LP", verbose = verbos
 CPLEX
 
 ## solve problem
-Rglpk:::.Rglpk_solve(CPLEX, control = list(verbose = verbose))
+Rglpk:::.ROI_glpk_solve(CPLEX, control = list(verbose = verbose))
