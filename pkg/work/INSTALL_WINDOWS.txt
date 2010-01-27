@@ -1,0 +1,16 @@
+## This file describes the process of succesfully compiling the package
+   on Windows 
+
+o Requirements: Windows XP 32bit, virtual machine (xmzeus.wu.ac.at, R-Forge
+build server), proper build environment (Rtools etc.)
+
+o Download the Windows binaries from
+http://sourceforge.net/projects/winglpk/ 
+
+o extract the .zip file and set the path to the extracted files as
+GLPK_HOME in your environment
+
+o TODO: currently one has to change the GLPK_LIBS = -lglpk_4_42
+according to the current version of GLPK in Makevars.win
+
+o Build the binary as usual.
