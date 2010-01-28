@@ -1,6 +1,6 @@
 Package: Rglpk
 Version: 0.3-3
-Date: 2010-01-27
+Date: 2010-01-28
 Title: R/GNU Linear Programming Kit Interface
 Author: Stefan Theussl and Kurt Hornik
 Maintainer: Stefan Theussl <stefan.theussl@wu.ac.at>

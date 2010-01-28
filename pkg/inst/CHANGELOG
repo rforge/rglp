@@ -1,3 +1,9 @@
+2010-01-28  Stefan Theussl  <stefan.theussl@wu.ac.at>
+
+	* UPDATED: Rglpk now includes GLPK version 4.42
+	* FIXED: compile warnings have been fixed in Upstream code
+	* ADDED: Windows support via separate configure script and Makevars 
+
 2009-09-07  Stefan Theussl  <stefan.theussl@wu.ac.at>
 
 	* UPDATED: Rglpk now includes GLPK version 4.39

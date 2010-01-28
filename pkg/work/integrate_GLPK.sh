@@ -123,6 +123,13 @@ if [[ $integrate ]] ; then
     echo "Patching upstream code: abort() statements replaced by xerror()!"
     cat ./glplib01.patch | patch -p0 $DESTINATION/src/glplib01.c
     cat ./glplib03.patch | patch -p0 $DESTINATION/src/glplib03.c
+    echo "Patching upstream code: Files with '~' are not supported in
+	R CMD build"
+    cat ./01_Makefile.in.patch | patch -p0 $DESTINATION/Makefile.in
+    cat ./02_Makefile.in.patch | patch -p0 $DESTINATION/examples/Makefile.in
+    cat ./03_Makefile.in.patch | patch -p0 $DESTINATION/include/Makefile.in
+    cat ./04_Makefile.in.patch | patch -p0 $DESTINATION/src/Makefile.in
+    mv $DESTINATION/m4/lt~obsolete.m4 $DESTINATION/m4/lt_obsolete.m4 
 fi
 
 
