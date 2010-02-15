@@ -130,6 +130,9 @@ if [[ $integrate ]] ; then
     cat ./03_Makefile.in.patch | patch -p0 $DESTINATION/include/Makefile.in
     cat ./04_Makefile.in.patch | patch -p0 $DESTINATION/src/Makefile.in
     mv $DESTINATION/m4/lt~obsolete.m4 $DESTINATION/m4/lt_obsolete.m4 
+    ## copy over Makefile.win which is called via package's
+    ## Makevars.win
+    cp 05_Makefile.win $DESTINATION/Makefile.win
 fi
 
 
