@@ -132,7 +132,7 @@ if [[ $integrate ]] ; then
     mv $DESTINATION/m4/lt~obsolete.m4 $DESTINATION/m4/lt_obsolete.m4 
     ## copy over Makefile.win which is called via package's
     ## Makevars.win
-    cp 05_Makefile.win $DESTINATION/Makefile.win
+    cp 05_Makefile.win $DESTINATION/src/Makefile.win
 fi
 
 
