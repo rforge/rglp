@@ -1,3 +1,35 @@
+* IMPORTANT: implement sanity check for optimization problem
+   formulation. sometimes there is a C stack obverflow when dimensions
+   of mat, dir, and rhs do not conform. e.g.,
+
+library("fPortfolio")
+library("Rglpk")
+nAssets <-6
+data<-100* LPP2005REC[,1:nAssets]
+nScenarios <- nrow(data)
+Mean<-colMeans(data)
+Data<-data-matrix(rep(Mean,nScenarios),byrow=TRUE, ncol=nAssets )
+targetReturn<-mean(data)
+
+#objective function
+obj<-c(weights=rep(0,nAssets),scenarios=rep(1/nScenarios, nScenarios))
+
+#RHS
+rhs<-c( MAD.LE = rep(0,nScenarios), MAG.GE= rep(0,nScenarios), RETURN = targetReturn,
+       BUDGET=1, X= rep(0,nScenarios+nAssets), WEIGHTS = rep(0, nAssets))
+
+#Constraints
+mat<- rbind(MAD.LE=cbind(Data, -diag(nScenarios)), MAD.GE=cbind(Data, +diag(nScenarios)),
+RETURN=t(c(Mean,rep(0,nScenarios))), BUDGET= t(c(rep(1, nAssets), rep(0, nScenarios))),
+X= cbind(matrix(rep(0, nAssets*nScenarios),ncol=nAssets),diag(nScenarios)),
+WEIGHTS= cbind(diag(nAssets),matrix(rep(0,nScenarios*nAssets),nrow=nAssets)))
+
+#directions
+dir<-c(MAD.LE= rep("<=",nScenarios),MAD.GE= rep(">=",nScenarios), RETURN = "==", BUDGET = "==", X = rep(">=", nAssets))
+
+#answer
+ans<-Rglpk_solve_LP(obj, mat, dir, rhs)
+
 * version string 4.39 
   since version 4.39 of the GLPK library the wrong version number is
    printed: 4.29
