@@ -1,7 +1,7 @@
 #-*- Makefile -*-
 #
 
-PKG_CPPFLAGS = -IGLPK/include
+PKG_CPPFLAGS = -IGLPK/src
 PKG_LIBS = GLPK/src/libglpk.a
 
 all: libs $(SHLIB) 
