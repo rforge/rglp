@@ -105,34 +105,57 @@ if [[ $integrate ]] ; then
 	mkdir -p $DESTINATION
     fi
 
-     cp -a $SOURCEDIR/* $DESTINATION
+     cp -a $SOURCEDIR/src/* $DESTINATION
     
-#    cp -a $SOURCEDIR/configure $DESTINATION/
-#    mkdir $DESTINATION/include
-#    cp -a $SOURCEDIR/include/glp* $DESTINATION/include
-#    mkdir $DESTINATION/src
-#    cp -a $SOURCEDIR/src/glp*     $DESTINATION/src
-#    mkdir $DESTINATION/src/amd
-#    cp -a $SOURCEDIR/src/amd/amd*     $DESTINATION/src/amd
-#    mkdir $DESTINATION/src/colamd
-#    cp -a $SOURCEDIR/src/colamd/colamd*     $DESTINATION/src/colamd
-
     if [[ -d $SOURCEDIR ]] ; then
 	rm -rf $SOURCEDIR
     fi
     echo "Patching upstream code: abort() statements replaced by xerror()!"
-    cat ./glpenv01.patch | patch -p0 $DESTINATION/src/glpenv01.c
-    cat ./glpenv04.patch | patch -p0 $DESTINATION/src/glpenv04.c
-    echo "Patching upstream code: Files with '~' are not supported in
-	R CMD build"
-    cat ./01_Makefile.in.patch | patch -p0 $DESTINATION/Makefile.in
-    cat ./02_Makefile.in.patch | patch -p0 $DESTINATION/examples/Makefile.in
-    #cat ./03_Makefile.in.patch | patch -p0 $DESTINATION/include/Makefile.in
-    cat ./04_Makefile.in.patch | patch -p0 $DESTINATION/src/Makefile.in
-    mv $DESTINATION/m4/lt~obsolete.m4 $DESTINATION/m4/lt_obsolete.m4 
-    ## copy over Makefile.win which is called via package's
+    cat ./glpenv01.patch | patch -p0 $DESTINATION/glpenv01.c
+    cat ./glpenv04.patch | patch -p0 $DESTINATION/glpenv04.c
+
+    ## create Makefile which is called via package's
+    ## Makevars
+
+    echo '#-*- Makefile -*-
+#
+
+include $(R_HOME)/etc$(R_ARCH)/Makeconf
+
+SOURCES= \' > $DESTINATION/Makefile
+(cd $DESTINATION ; find . | grep ".c$" | xargs printf "%s \\\\\n" >> Makefile)
+
+echo '
+OBJS = $(SOURCES:.c=.o)
+
+PKG_CPPFLAGS = -I.
+
+all: libglpk.a
+
+libglpk.a: $(OBJS)
+	$(AR) crs $@ $(OBJS)
+' >> $DESTINATION/Makefile
+
+    ## create Makefile.win which is called via package's
     ## Makevars.win
-    cp 05_Makefile.win $DESTINATION/src/Makefile.win
+    echo '#-*- Makefile -*-
+#
+include $(R_HOME)/etc$(R_ARCH)/Makeconf
+
+SOURCES= \' > $DESTINATION/Makefile.win
+(cd $DESTINATION ; find . | grep ".c$" | xargs printf "%s \\\\\n" >> Makefile.win)
+
+echo '
+OBJS = $(SOURCES:.c=.o)
+
+PKG_CPPFLAGS = -D__WOE__ -D__MINGW32__ -I.
+
+all: libglpk.a
+
+libglpk.a: $(OBJS)
+	$(AR) crs $@ $(OBJS)
+' >> $DESTINATION/Makefile.win
+    #cp 05_Makefile.win $DESTINATION/src/Makefile.win
 fi
 
 
