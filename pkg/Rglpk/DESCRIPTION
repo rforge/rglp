@@ -1,6 +1,6 @@
 Package: Rglpk
-Version: 0.3-6
-Date: 2011-12-27
+Version: 0.3-7
+Date: 2012-01-11
 Title: R/GNU Linear Programming Kit Interface
 Description: R interface to the GNU Linear Programing Kit (GLPK version 4.45).
   GLPK is open source software for solving large-scale linear programming (LP),
