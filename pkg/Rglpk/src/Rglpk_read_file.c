@@ -164,7 +164,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
     
     str = glp_get_col_name(lp, i+1);    
     if (str != NULL) {
-      lp_objective_vars_names[i] = str;
+      lp_objective_vars_names[i] = (char *) str;
     }	        
     
     lp_bounds_type[i]            = glp_get_col_type(lp, i+1);
@@ -189,7 +189,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
     
     str = glp_get_row_name(lp, i+1);    
     if (str != NULL) {
-      lp_constraint_names[i] = str;
+      lp_constraint_names[i] = (char *) str;
     }	    
     
     // the right hand side. Note we don't allow for double bounded or
