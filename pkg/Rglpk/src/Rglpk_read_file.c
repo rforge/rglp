@@ -160,16 +160,23 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 
   if(*lp_verbosity==1)
     Rprintf("Retrieve column specific data ...\n");
-  
+
   // retrieve column specific data (values, bounds and type)
   for (i = 0; i < *lp_n_objective_vars; i++) {
     lp_objective_coefficients[i] = glp_get_obj_coef(lp, i+1);
     
-    // str = glp_get_col_name(lp, i+1);    
-    // if ((int *) str != NULL) {
-    //  Rprintf("Column name: %s \n", (char *) str);
-    //  lp_objective_vars_names[i] = (char *) str;
-    // }	        
+    str = glp_get_col_name(lp, i+1);    
+    if (str){
+      lp_objective_vars_names[i] = (char *) CHAR(mkChar(str));
+      /* strcpy(lp_objective_vars_names[i], str);  */
+    }
+    /* if (str) { */
+    /*   char *s = (char *) malloc(sizeof(char)); */
+    /*   strcpy(s, str); */
+    /*   SEXP t = mkChar(s); */
+    /*   free(s); */
+    /*   lp_objective_vars_names[i] = (char *) CHAR(t); */
+    /* }	         */
     
     lp_bounds_type[i]            = glp_get_col_type(lp, i+1);
     lp_bounds_lower[i]           = glp_get_col_lb  (lp, i+1);
@@ -194,12 +201,21 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
   // retrieve row specific data (right hand side, direction of constraints)
   for (i = *lp_ignore_first_row; i < *lp_n_constraints; i++) {
     lp_direction_of_constraints[i] = glp_get_row_type(lp, i+1);
+    
+    
+    str = glp_get_row_name(lp, i + 1);
+    if (str) { 
+      lp_constraint_names[i] = (char *) CHAR(mkChar(str));      
+      /* strcpy(lp_constraint_names[i], str); */
+    }
 
-    // str = glp_get_row_name(lp, i+1);    
-    //  if ((int *) str != NULL) {
-    //   Rprintf("Row name: %s \n", (char *) str);
-    //      lp_constraint_names[i] = (char *) str;
-    //    }	    
+    /* if (str) { */
+    /*   char *s = (char *) malloc(sizeof(char)); */
+    /*   strcpy(s, str); */
+    /*   SEXP t = mkChar(s); */
+    /*   free(s); */
+    /*   lp_constraint_names[i] = (char *) CHAR(t); */
+    /* }	         */
     
     // the right hand side. Note we don't allow for double bounded or
     // free auxiliary variables 
@@ -220,5 +236,12 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 
   // delete problem object
   glp_delete_prob(lp);
+  Rprintf("Problem deleted.\n");
+  for (i = *lp_ignore_first_row; i < *lp_n_constraints; i++) {
+    Rprintf("Row %d: %s\n", i, lp_constraint_names[i]);
+  }
+  for (i = 0; i < *lp_n_objective_vars; i++) {
+    Rprintf("Col %d: %s\n", i, lp_objective_vars_names[i] );
+  }
+  Rprintf("Works. Nice.\n");
 }
-
