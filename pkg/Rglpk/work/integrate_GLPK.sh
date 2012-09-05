@@ -106,6 +106,12 @@ if [[ $integrate ]] ; then
     fi
 
      cp -a $SOURCEDIR/src/* $DESTINATION
+     
+     mkdir -p ../inst/mps
+     cp -a $SOURCEDIR/examples/*.mps ../inst/mps/
+     mkdir -p ../inst/mod
+     cp -a $SOURCEDIR/examples/*.mod ../inst/mod/
+     
     
     if [[ -d $SOURCEDIR ]] ; then
 	rm -rf $SOURCEDIR
@@ -163,6 +169,9 @@ if [[ $clean ]] ; then
     if [[ -d ${DESTINATION} ]] ; then
 	rm -rf $DESTINATION/*
     fi
+    rm -rf ../inst/mps
+    rm -rf ../inst/mod
+
 fi
 
 echo "done."
