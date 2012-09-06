@@ -131,6 +131,8 @@ glp_get_meta_data_from_file <- function(x, verbose){
             n_binary_vars                 = integer(1L),
             verbosity                     = as.integer(verbose),
             PACKAGE = "Rglpk")
+  ## free memory by deleting C-level problem object
+  .C("Rglpk_delete_prob", PACKAGE = "Rglpk")
   res
 }
 
@@ -161,6 +163,8 @@ glp_retrieve_MP_from_file <- function(x, ignore_first_row, verbose = FALSE){
             constraint_names         = rep(character(1L), x$n_constraints),
             objective_vars_names     = rep(character(1L), x$n_objective_vars),
             PACKAGE = "Rglpk")
+  ## free memory by deleting C-level problem object
+  .C("Rglpk_delete_prob", PACKAGE = "Rglpk")
   ## lp_is_integer               = as.integer(lp_is_integer),
 
   ## replace infinity values

@@ -1,10 +1,24 @@
-/* These are the interface functions to GLPK's MPS reader/writer
- * Since 2012-01-11: Rglpk now supports MATHPROG files and retrieves
- * variables names and constraints names. Thanks to Michael Kapler!
+/* These are the interface functions to GLPK's MPS reader/writer Since
+ * 2012-01-11: Rglpk now supports MATHPROG files and retrieves
+ * variables names and constraints names. Thanks to Michael Kapler!  
+ * 2012-09-06: A fix to random segfaults introduced with the patch by
+ * Michael has been contributed by Christian Buchta.
  */
 
 #include "Rglpk.h"
 #include <stdio.h>
+
+// pointer to problem object.
+static glp_prob *lp = NULL;
+
+// call destructor from the R level to guarantee that data has been
+// copied to R data structures.
+void Rglpk_delete_prob() {
+  extern glp_prob *lp;
+  // delete problem object (if any)
+  if (lp)
+    glp_delete_prob(lp);
+}
 
 // read in all necessary elements for retrieving the LP/MILP
 void Rglpk_read_file (char **file, int *type, 
@@ -15,7 +29,7 @@ void Rglpk_read_file (char **file, int *type,
 		      int *lp_verbosity) {
 
   int status;
-  glp_prob *lp;
+  extern glp_prob *lp;
   glp_tran *tran;
 
   
@@ -26,6 +40,8 @@ void Rglpk_read_file (char **file, int *type,
     glp_term_out(GLP_OFF);
 
   // create problem object 
+  if (lp)
+    glp_delete_prob(lp);
   lp = glp_create_prob();
 
   // read file -> gets stored as an GLPK problem object 'lp'
@@ -61,6 +77,7 @@ void Rglpk_read_file (char **file, int *type,
 
   // if file read successfully glp_read_* returns zero
   if ( status != 0 ) {
+    glp_delete_prob(lp);
     error("Reading file %s failed", *file);
   }
 
@@ -107,7 +124,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 				  char **lp_constraint_names,
 				  char **lp_objective_vars_names
 				  ) {
-  glp_prob *lp;
+  extern glp_prob *lp;
   glp_tran *tran;
   const char *str; 
   
@@ -120,7 +137,9 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
   else
     glp_term_out(GLP_OFF);
 
-  // create problem object 
+  // create problem object
+  if (lp)
+    glp_delete_prob(lp);
   lp = glp_create_prob();
 
   // read file -> gets stored as an GLPK problem object 'lp'
@@ -156,6 +175,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 
   // if file read successfully glp_read_* returns zero
   if ( status != 0 ) {
+    glp_delete_prob(lp);
     error("Reading file %c failed.", *file);
   }
 
@@ -166,14 +186,11 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
   for (i = 0; i < *lp_n_objective_vars; i++) {
     lp_objective_coefficients[i] = glp_get_obj_coef(lp, i+1);
     
-    // (char *) CHAR(mkChar(str)) copies the retrieved str into R's
-    // character cache. This makes the data usable in R even if the
-    // GLP problem gets deleted and thus, avoids segfaults on large
-    // problems.
+    // Note that str must not be freed befor we have returned
+    // from the .C call in R! 
     str = glp_get_col_name(lp, i+1);    
     if (str){
-      lp_objective_vars_names[i] = (char *) CHAR(mkChar(str));
-      /* strcpy(lp_objective_vars_names[i], str);  */
+      lp_objective_vars_names[i] = (char *) str;
     }
     
     lp_bounds_type[i]            = glp_get_col_type(lp, i+1);
@@ -202,8 +219,7 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
     
     str = glp_get_row_name(lp, i + 1);
     if (str) { 
-      lp_constraint_names[i] = (char *) CHAR(mkChar(str));      
-      /* strcpy(lp_constraint_names[i], str); */
+      lp_constraint_names[i] = (char *) str;
     }
     
     // the right hand side. Note we don't allow for double bounded or
@@ -226,11 +242,9 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 	lp_constraint_matrix_i[ind_offset+j] = i+1;
 	ind_offset += tmp; 
   }
-
-  // delete problem object
-  glp_delete_prob(lp);
   
   if(*lp_verbosity==1)
     Rprintf("Done.\n");
 
 }
+
