@@ -16,8 +16,11 @@ static glp_prob *lp = NULL;
 void Rglpk_delete_prob() {
   extern glp_prob *lp;
   // delete problem object (if any)
-  if (lp)
+  if (lp){
     glp_delete_prob(lp);
+    lp = NULL;
+  }
+  
 }
 
 // read in all necessary elements for retrieving the LP/MILP
@@ -25,13 +28,15 @@ void Rglpk_read_file (char **file, int *type,
 		      int *lp_direction_of_optimization,
 		      int *lp_n_constraints, int *lp_n_objective_vars,
 		      int *lp_n_values_in_constraint_matrix,
-		      int *lp_n_integer_vars, int *lp_n_binary_vars,
+		      int *lp_n_integer_vars, int *lp_n_binary_vars, 
+		      char **lp_prob_name,
+		      char **lp_obj_name,
 		      int *lp_verbosity) {
 
   int status;
   extern glp_prob *lp;
   glp_tran *tran;
-
+  const char *str; 
   
   // Turn on/off Terminal Output
   if (*lp_verbosity==1)
@@ -78,9 +83,22 @@ void Rglpk_read_file (char **file, int *type,
   // if file read successfully glp_read_* returns zero
   if ( status != 0 ) {
     glp_delete_prob(lp);
+    lp = NULL;
     error("Reading file %s failed", *file);
   }
 
+  // retrieve problem name
+  str = glp_get_prob_name(lp);
+  if (str){
+    *lp_prob_name = (char *) str;
+  }
+
+  // retrieve name of objective function
+  str = glp_get_obj_name(lp);
+  if (str){
+    *lp_obj_name = (char *) str;
+  }
+  
   // retrieve optimization direction flag
   *lp_direction_of_optimization = glp_get_obj_dir(lp);  
 
@@ -101,6 +119,7 @@ void Rglpk_read_file (char **file, int *type,
   
   // delete problem object
   glp_delete_prob(lp);
+  lp = NULL;
 }
 
 // retrieve all missing values of LP/MILP
@@ -176,11 +195,18 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
   // if file read successfully glp_read_* returns zero
   if ( status != 0 ) {
     glp_delete_prob(lp);
+    lp = NULL;
     error("Reading file %c failed.", *file);
   }
-
+  
   if(*lp_verbosity==1)
     Rprintf("Retrieve column specific data ...\n");
+
+  if(glp_get_num_cols(lp) != *lp_n_objective_vars) {
+    glp_delete_prob(lp);
+    lp = NULL;
+    error("The number of columns is not as specified");
+  }
 
   // retrieve column specific data (values, bounds and type)
   for (i = 0; i < *lp_n_objective_vars; i++) {
@@ -212,6 +238,12 @@ void Rglpk_retrieve_MP_from_file (char **file, int *type,
 
   if(*lp_verbosity==1)
     Rprintf("Retrieve row specific data ...\n");
+
+  if(glp_get_num_rows(lp) != *lp_n_constraints) {
+    glp_delete_prob(lp);
+    lp = NULL;
+    error("The number of rows is not as specified");
+  }
 
   // retrieve row specific data (right hand side, direction of constraints)
   for (i = *lp_ignore_first_row; i < *lp_n_constraints; i++) {

@@ -6,29 +6,32 @@
   linear as well as mixed integer linear programming problems (MILPs).
 }
 \usage{
-Rglpk_solve_LP(obj, mat, dir, rhs, types = NULL, max = FALSE,
-               bounds = NULL, verbose = FALSE)
+Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
+               control = list(), \ldots)
 }
 \arguments{
-  \item{obj}{a vector with the objective coefficients}
-  \item{mat}{a vector or a matrix of the constraint coefficients}
+  \item{obj}{a numeric vector representing the objective coefficients.}
+  \item{mat}{a numeric vector or a matrix of constraint coefficients.}
   \item{dir}{a character vector with the directions of the constraints.
     Each element must be one of \code{"<"}, \code{"<="}, \code{">"},
     \code{">="}, or \code{"=="}.}
-  \item{rhs}{the right hand side of the constraints}
-  \item{types}{a vector indicating the types of the objective
-    variables. \code{types} can be either \code{"B"} for binary,
-    \code{"C"} for continuous or \code{"I"} for integer. By default all
-    variables are of type \code{"C"}.}
-  \item{max}{a logical giving the direction of the optimization.
-    \code{TRUE} means that the objective is to maximize the objective
-    function, \code{FALSE} (default) means to minimize it.}
+  \item{rhs}{the right hand side of the constraints.}
   \item{bounds}{\code{NULL} (default) or a list with elements
     \code{upper} and \code{lower} containing the indices and
     corresponding bounds of the objective variables.  The default for
     each variable is a bound between 0 and \code{Inf}.}
-  \item{verbose}{a logical for turning on/off additional solver output:
-    Default: \code{FALSE}.}
+  \item{types}{a character vector indicating the types of the objective
+    variables. \code{types} can be either \code{"B"} for binary,
+    \code{"C"} for continuous or \code{"I"} for integer. By default
+    \code{NULL}, taken as all-continuous. Recycled as needed.}
+  \item{max}{a logical giving the direction of the optimization.
+    \code{TRUE} means that the objective is to maximize the objective
+    function, \code{FALSE} (default) means to minimize it.}
+  \item{control}{a list of parameters to the solver. Currently the
+    only option is \code{verbose}, a logical for turning on/off additional
+    solver output. Default: \code{FALSE}.}
+  \item{\ldots}{a list of control parameters (overruling those specified in
+          \code{control}).}
 }
 \details{
   The GNU Linear Programming Kit is open source.  The current version
@@ -57,6 +60,7 @@ Rglpk_solve_LP(obj, mat, dir, rhs, types = NULL, max = FALSE,
 \author{Stefan Theussl and Kurt Hornik}
 \seealso{
   \code{\link[lpSolve]{lp}} in package \pkg{lpSolve};
+  \code{\link[ROI]{ROI_solve}} in package \pkg{ROI};
   \code{\link[Rsymphony]{Rsymphony_solve_LP}} in package
   \pkg{Rsymphony}.
 }
@@ -91,7 +95,7 @@ rhs <- c(4, 2, 3)
 types <- c("I", "C", "I")
 max <- TRUE
 
-Rglpk_solve_LP(obj, mat, dir, rhs, types, max)
+Rglpk_solve_LP(obj, mat, dir, rhs, types = types, max = max)
 
 ## Same as before but with bounds replaced by
 ## -Inf <  x_1 <= 4
@@ -100,9 +104,10 @@ Rglpk_solve_LP(obj, mat, dir, rhs, types, max)
 
 bounds <- list(lower = list(ind = c(1L, 3L), val = c(-Inf, 2)),
                upper = list(ind = c(1L, 2L), val = c(4, 100)))
-Rglpk_solve_LP(obj, mat, dir, rhs, types, max, bounds)
+Rglpk_solve_LP(obj, mat, dir, rhs, bounds, types, max)
 
 ## Examples from the GLPK manual
+## Solver output enabled
 
 ## 1.3.1
 ## maximize:   10 x_1 + 6 x_2 + 4 x_3
@@ -117,8 +122,8 @@ dir <- c("<=", "<=", "<=")
 rhs <- c(100, 600, 300)
 max <- TRUE
 
-Rglpk_solve_LP(obj, mat, dir, rhs, max = max)
-
+Rglpk_solve_LP(obj, mat, dir, rhs, max = max, control = list("verbose" =
+TRUE))
 
 }
 \keyword{optimize}

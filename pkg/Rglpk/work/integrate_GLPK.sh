@@ -107,10 +107,8 @@ if [[ $integrate ]] ; then
 
      cp -a $SOURCEDIR/src/* $DESTINATION
      
-     mkdir -p ../inst/mps
-     cp -a $SOURCEDIR/examples/*.mps ../inst/mps/
-     mkdir -p ../inst/mod
-     cp -a $SOURCEDIR/examples/*.mod ../inst/mod/
+     cp -a $SOURCEDIR/examples/plan.* ../inst/examples/
+     cp -a $SOURCEDIR/examples/assign.mod ../inst/examples/
      
     
     if [[ -d $SOURCEDIR ]] ; then
