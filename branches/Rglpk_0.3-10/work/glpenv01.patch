@@ -1,0 +1,4 @@
+136c136
+<             abort();
+---
+>             xerror("Execution aborted.");

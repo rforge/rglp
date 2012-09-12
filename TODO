@@ -1,4 +1,23 @@
-* IMPORTANT: implement sanity check for optimization problem
+
+* switch to .Call() interface
+
+* duplicated entries in constraint matrix
+	if duplicated entries in the constraint matrix occur then before exiting look if the 
+	whole constraint is really the same, if so delete one of them and print out a warning 
+	otherwise stop. In C code remove the abort call as it directly exits R. Replace it with 
+	something similar like stop().
+   Nevertheless a function like check constraint matrix for sanity
+   should be included.
+   UPDATE: partially solved: replaced abort(); with xerror("Execution aborted.").
+
+* Interior point solver
+   integrate interior point solver
+
+* DONE data structure for read_file
+   doesn't work yet to solve a read problem as there is something wrong
+   with the max argument. I think x$max -> "maximize". this has to be fixed
+
+* DONE implement sanity check for optimization problem
    formulation. sometimes there is a C stack obverflow when dimensions
    of mat, dir, and rhs do not conform. e.g.,
 
@@ -30,25 +49,9 @@ dir<-c(MAD.LE= rep("<=",nScenarios),MAD.GE= rep(">=",nScenarios), RETURN = "==",
 #answer
 ans<-Rglpk_solve_LP(obj, mat, dir, rhs)
 
-* version string 4.39 
+* DONE (upstream) version string 4.39 
   since version 4.39 of the GLPK library the wrong version number is
    printed: 4.29
-
-* duplicated entries in constraint matrix
-	if duplicated entries in the constraint matrix occur then before exiting look if the 
-	whole constraint is really the same, if so delete one of them and print out a warning 
-	otherwise stop. In C code remove the abort call as it directly exits R. Replace it with 
-	something similar like stop().
-   Nevertheless a function like check constraint matrix for sanity
-   should be included.
-   UPDATE: partially solved: replaced abort(); with xerror("Execution aborted.").
-
-* data structure for read_file
-   doesn't work yet to solve a read problem as there is something wrong
-   with the max argument. I think x$max -> "maximize". this has to be fixed
-
-* Interior point solver
-   integrate interior point solver
 
 
 
