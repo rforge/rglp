@@ -116,9 +116,6 @@ void Rglpk_read_file (char **file, int *type,
   
   // retrieve number of binary variables
   *lp_n_binary_vars = glp_get_num_bin(lp);
-  
-  // delete problem object
-  glp_delete_prob(lp);
   lp = NULL;
 }
 

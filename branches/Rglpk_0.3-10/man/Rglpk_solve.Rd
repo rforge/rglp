@@ -2,8 +2,8 @@
 \alias{Rglpk_solve_LP}
 \title{Linear and Mixed Integer Programming Solver Using GLPK}
 \description{
-  High level R interface to the GNU Linear Programming Kit for solving
-  linear as well as mixed integer linear programming problems (MILPs).
+  High level R interface to the GNU Linear Programming Kit (GLPK) for solving
+  linear as well as mixed integer linear programming (MILP) problems.
 }
 \usage{
 Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
@@ -28,27 +28,30 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
     \code{TRUE} means that the objective is to maximize the objective
     function, \code{FALSE} (default) means to minimize it.}
   \item{control}{a list of parameters to the solver. Currently the
-    only option is \code{verbose}, a logical for turning on/off additional
-    solver output. Default: \code{FALSE}.}
+    only options are: \code{verbose}, a logical for turning on/off additional
+    solver output; \code{canonicalize_status}, a logical indicating
+    whether to canonicalize GLPK status codes or not. Defaults:
+    \code{FALSE}; \code{TRUE}.}
   \item{\ldots}{a list of control parameters (overruling those specified in
           \code{control}).}
 }
 \details{
-  The GNU Linear Programming Kit is open source.  The current version
-  can be found at
+  GLPK is open source. The current version can be found at
   \url{http://www.gnu.org/software/glpk/glpk.html}.  Package \pkg{Rglpk}
   provides a high level solver function using the low level C interface
-  of the GLPK solver.  There also exists an R interface done by Lopaka Lee
-  which ports all low level C Interface routines of the GLPK API to R (R
-  package \pkg{glpk}). 
+  of the GLPK solver. R interface packages which port all low level C routines
+  of the GLPK API to R are also available. Consult the \sQuote{See Also}
+  Section for references.
 }
 \value{
   A list containing the optimal solution, with the following components.
   \item{solution}{the vector of optimal coefficients}
   \item{objval}{the value of the objective function at the optimum}
   \item{status}{an integer with status information about the solution
-    returned: 0 if the optimal solution was found, a non-zero value
-    otherwise.}
+    returned. If the control parameter \code{canonicalize_status} is set
+    (the default) then it will return 0 for the optimal solution being
+    found, and non-zero otherwise. If the control parameter is set to
+    \code{FALSE} it will return the GLPK status codes.}
 }
 \references{
   GNU Linear Programming Kit
@@ -59,6 +62,7 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
 }
 \author{Stefan Theussl and Kurt Hornik}
 \seealso{
+  \pkg{glpk} and \pkg{glpkAPI} for C API bindings;
   \code{\link[lpSolve]{lp}} in package \pkg{lpSolve};
   \code{\link[ROI]{ROI_solve}} in package \pkg{ROI};
   \code{\link[Rsymphony]{Rsymphony_solve_LP}} in package
@@ -123,7 +127,7 @@ rhs <- c(100, 600, 300)
 max <- TRUE
 
 Rglpk_solve_LP(obj, mat, dir, rhs, max = max, control = list("verbose" =
-TRUE))
+TRUE, "canonicalize_status" = FALSE))
 
 }
 \keyword{optimize}
