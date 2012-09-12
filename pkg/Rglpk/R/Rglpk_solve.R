@@ -74,8 +74,11 @@ function(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
   solution[integers | binaries] <-
     round( solution[integers | binaries])
   ## match status of solution
-  ## 0 -> optimal solution (5 in GLPK) else 1
-  status <- as.integer(x$lp_status != 5L)
+  status <- as.integer(x$lp_status)
+  if(control$canonicalize_status){
+      ## 0 -> optimal solution (5 in GLPK) else 1
+      status <- as.integer(status != 5L)
+  }
   list(optimum = sum(solution * obj), solution = solution, status = status)
 }
 
