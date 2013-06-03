@@ -5,7 +5,7 @@
 ## latest glpk tarball (Austrian mirror out of date)
 #URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
 URL="ftp://ftp.gnu.org/gnu/glpk/"
-latest="glpk-4.47.tar.gz"
+latest="glpk-4.50.tar.gz"
 ## where to put source files and headers
 DESTINATION=../src/GLPK
 
@@ -117,6 +117,10 @@ if [[ $integrate ]] ; then
     echo "Patching upstream code: abort() statements replaced by xerror()!"
     cat ./glpenv01.patch | patch -p0 $DESTINATION/glpenv01.c
     cat ./glpenv04.patch | patch -p0 $DESTINATION/glpenv04.c
+    cat ./glpmat.patch | patch -p0 $DESTINATION/glpmat.c
+    cat ./glpbfd.patch | patch -p0 $DESTINATION/glpbfd.c
+    cat ./glpenv07.patch | patch -p0 $DESTINATION/glpenv07.c
+    cat ./glpapi19.patch | patch -p0 $DESTINATION/glpapi19.c
 
     ## create Makefile which is called via package's
     ## Makevars
