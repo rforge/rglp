@@ -19,12 +19,12 @@ rhs <- c(4, 2, 3)
 types <- c("I", "C", "I")
 max <- TRUE
 
-Rglpk_solve_LP(obj, mat, dir, rhs, types, max)
+Rglpk_solve_LP(obj, mat, dir, rhs, types = types, max = max)
 
 
 bounds <- list(lower = list(ind = c(1L, 3L), val = c(-Inf, 2)),
                upper = list(ind = c(1L, 2L), val = c(4, 100)))
-Rglpk_solve_LP(obj, mat, dir, rhs, types, max, bounds)
+Rglpk_solve_LP(obj, mat, dir, rhs, bounds, types, max)
 
 
 ## check if Rglpk still reads file in MPS format
