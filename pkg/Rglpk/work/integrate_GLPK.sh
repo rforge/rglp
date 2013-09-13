@@ -5,7 +5,7 @@
 ## latest glpk tarball (Austrian mirror out of date)
 #URL="http://gd.tuwien.ac.at/gnu/gnusrc/glpk/"
 URL="ftp://ftp.gnu.org/gnu/glpk/"
-latest="glpk-4.50.tar.gz"
+latest="glpk-4.52.tar.gz"
 ## where to put source files and headers
 DESTINATION=../src/GLPK
 
@@ -110,15 +110,27 @@ if [[ $integrate ]] ; then
      cp -a $SOURCEDIR/examples/plan.* ../inst/examples/
      cp -a $SOURCEDIR/examples/assign.mod ../inst/examples/
      
-    
     if [[ -d $SOURCEDIR ]] ; then
 	rm -rf $SOURCEDIR
     fi
+
+    # FIXME: instead of copying files around we should create
+    # patches or even better, find a way that subdirectories are
+    # recognized when compiling the package.
+    mv $DESTINATION/env/* $DESTINATION/
+    rmdir $DESTINATION/env
+    mv $DESTINATION/misc/* $DESTINATION/
+    rmdir $DESTINATION/misc
+    mv $DESTINATION/bflib/* $DESTINATION/
+    rmdir $DESTINATION/bflib
+    mv $DESTINATION/cglib/* $DESTINATION/
+    rmdir $DESTINATION/cglib
+
     echo "Patching upstream code: abort() statements replaced by xerror()!"
-    cat ./glpenv01.patch | patch -p0 $DESTINATION/glpenv01.c
-    cat ./glpenv04.patch | patch -p0 $DESTINATION/glpenv04.c
+    #cat ./glpenv01.patch | patch -p0 $DESTINATION/glpenv01.c
+    #cat ./glpenv04.patch | patch -p0 $DESTINATION/glpenv04.c
     cat ./glpmat.patch | patch -p0 $DESTINATION/glpmat.c
-    cat ./glpbfd.patch | patch -p0 $DESTINATION/glpbfd.c
+    #cat ./glpbfd.patch | patch -p0 $DESTINATION/glpbfd.c
     cat ./glpenv07.patch | patch -p0 $DESTINATION/glpenv07.c
     cat ./glpapi19.patch | patch -p0 $DESTINATION/glpapi19.c
 
