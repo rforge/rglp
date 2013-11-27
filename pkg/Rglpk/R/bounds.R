@@ -54,7 +54,7 @@ glp_bounds <- function(x, n)
   ## Lower bounds
   lower <- x$lower
   ## check for zero-length bounds
-  if( !any(unlist(lapply(upper, length))) )
+  if( !any(unlist(lapply(lower, length))) )
     lower <- NULL
 
   if(!is.null(lower)){
