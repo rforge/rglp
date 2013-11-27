@@ -1,0 +1,165 @@
+/* ************************ */
+/* ****** parameters ****** */
+/* ************************ */
+/* alternatives */
+param X;
+/* criteria */
+param F;
+/* criteria preference direction*/
+param Fdir{i in 1..F};
+/* criteria min*/
+param Fmin{i in 1..F};
+/* criteria max*/
+param Fmax{i in 1..F};
+/* categories */
+param K;
+/* assignments */
+param A{x in 1..X};
+/* performance table - alternatives */
+param PTx{x in 1..X, i in 1..F};
+/* big M */
+param M{i in 1..F};
+/* separation for inequalities and parameters */
+param gamma;
+/* *********************** */
+/* ****** variables ****** */
+/* *********************** */
+/* majority threshold */
+var lambda >= 0.5, <= 1;
+/* weights */
+var w{i in 1..F} >=0, <=1;
+/* performance table - profiles */
+var PTk{k in 1..(K+1), i in 1..F};
+/* local concordance to upper profile */
+var lCupp{x in 1..X, i in 1..F} binary;
+/* local concordance to lower profile */
+var lClow{x in 1..X, i in 1..F} binary;
+/* weighted local concordance to upper profile */
+var wlCupp{x in 1..X, i in 1..F};
+/* weighted local concordance to lower profile */
+var wlClow{x in 1..X, i in 1..F};
+/* profile separation */
+var ksep >=0;
+/* ******************************** */
+/* ****** objective function ****** */
+/* ******************************** */
+maximize obj: ksep;
+/* ************************* */
+/* ****** constraints ****** */
+/* ************************* */
+/* normalized weights */
+s.t. normalisedWeights: sum{i in 1..F} w[i] = 1;
+/* constraints on the local concordance */
+s.t. lCupp1{x in 1..X, i in 1.. F}: Fdir[i] * 1/M[i] * (PTx[x,i] - PTk[A[x],i]) + gamma <= lCupp[x,i];
+s.t. lCupp2{x in 1..X, i in 1.. F}: lCupp[x,i] <= Fdir[i] * 1/M[i] * (PTx[x,i] - PTk[A[x],i]) + 1;
+s.t. lClow1{x in 1..X, i in 1.. F}: Fdir[i] * 1/M[i] * (PTx[x,i] - PTk[A[x]+1,i]) + gamma <= lClow[x,i];
+s.t. lClow2{x in 1..X, i in 1.. F}: lClow[x,i] <= Fdir[i] * 1/M[i] * (PTx[x,i] - PTk[A[x]+1,i]) + 1;
+/* constraints on the weighted local concordance */
+s.t. wlCupp1{x in 1..X, i in 1..F}: wlCupp[x,i] <= w[i];
+s.t. wlCupp2{x in 1..X, i in 1..F}: 0 <= wlCupp[x,i];
+s.t. wlCupp3{x in 1..X, i in 1..F}: wlCupp[x,i] <= lCupp[x,i];
+s.t. wlCupp4{x in 1..X, i in 1..F}: lCupp[x,i] + w[i] - 1 <= wlCupp[x,i];
+s.t. wlClow1{x in 1..X, i in 1..F}: wlClow[x,i] <= w[i];
+s.t. wlClow2{x in 1..X, i in 1..F}: 0 <= wlClow[x,i];
+s.t. wlClow3{x in 1..X, i in 1..F}: wlClow[x,i] <= lClow[x,i];
+s.t. wlClow4{x in 1..X, i in 1..F}: lClow[x,i] + w[i] - 1 <= wlClow[x,i];
+/* dominance between profiles */
+s.t. dominance{k in 1..K, i in 1..F}: Fdir[i] * PTk[(k+1),i] + gamma <= Fdir[i] * PTk[k,i] - ksep * (Fmax[i]-Fmin[i]); 
+/* min and max of profiles evaluations */
+s.t. minprofile{k in 1..(K+1), i in 1..F}: Fmin[i] <= PTk[k,i];
+s.t. maxprofile{k in 1..(K+1), i in 1..F}: PTk[k,i] <= Fmax[i];
+/* alternative outranks lower profile */
+s.t. Slow{x in 1..X}: lambda <= sum{i in 1..F} wlClow[x,i];
+/* alternative does not outrank upper profile */
+s.t. Supp{x in 1..X}: sum{i in 1..F} wlCupp[x,i] + gamma <= lambda;
+
+solve;
+
+printf "/* ****** Objective ****** */\n";
+printf "   objective = %.3f\n", obj;
+printf "/* ****** Weights ****** */\n";
+
+printf{i in 1..F} "   w[%d] = %.3f\n", i, w[i];
+
+printf "/* ****** Lambda ****** */\n";
+
+printf "   lambda = %.3f\n", lambda;
+
+printf "/* ****** Profiles performances ****** */\n";
+
+printf{k in 1..(K+1), i in 1..F} "   profilesPerformances[%d,%d] = %.3f\n", k, i, PTk[k,i];
+
+printf "/* ****** Concordances ****** */\n";
+
+printf{x in 1..X, i in 1..F} "   localconcordanceup[%d,%d] = %.3f\n", x, i, lCupp[x,i];
+printf{x in 1..X, i in 1..F} "   localconcordancedown[%d,%d] = %.3f\n", x, i, lClow[x,i];
+
+printf{x in 1..X} "   globalconcordanceup[%d] = %.3f\n", x, sum{i in 1..F} wlCupp[x,i];
+printf{x in 1..X} "   globalconcordancedown[%d] = %.3f\n", x, sum{i in 1..F} wlClow[x,i];
+
+
+data;
+param X := 10;
+
+param F := 6;
+
+param Fdir := 
+1	1
+2	-1
+3	-1
+4	1
+5	1
+6	-1;
+
+param Fmin :=
+1	117
+2	7.2
+3	6.75
+4	3
+5	5.11
+6	24800;
+
+param Fmax :=
+1	182
+2	14.5
+3	12.95
+4	13
+5	8.47
+6	75700;
+
+param K := 3;
+
+param A:=
+1	1
+2	1
+3	1
+4	2
+5	2
+6	2
+7	2
+8	3
+9	3
+10	3;
+
+param PTx : 1 2 3 4 5 6 := 
+1	173 11.4 10.01 10 7.88 49500
+2	176 12.3 10.48 11 7.96 46700
+3	142 8.2 7.3 5 5.65 32100
+4	148 10.5 9.61 7 6.15 39150
+5	178 14.5 11.05 13 8.06 64700
+6	180 13.6 10.4 13 8.47 75700
+7	182 12.7 12.26 11 7.81 68593
+8	145 14.3 12.95 11 8.38 55000
+9	161 8.6 8.42 7 5.11 35200
+10	117 7.2 6.75 3 5.81 24800;
+
+param M :=
+1	182
+2	14.5
+3	12.95
+4	13
+5	8.47
+6	75700;
+
+param gamma:=0.01;
+end;
