@@ -1,6 +1,0 @@
-28,29c28,29
-< #include "amd.h"
-< #include "colamd.h"
----
-> #include "amd/amd.h"
-> #include "colamd/colamd.h"

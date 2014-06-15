@@ -1,4 +1,0 @@
-26c26
-< #include "minisat.h"
----
-> #include "minisat/minisat.h"
