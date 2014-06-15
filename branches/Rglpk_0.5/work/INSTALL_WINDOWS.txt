@@ -1,0 +1,20 @@
+## This file describes the process of succesfully compiling the package
+   on Windows 
+
+o Requirements: Windows XP 32bit, virtual machine (xmzeus.wu.ac.at, R-Forge
+build server), proper build environment (Rtools etc.)
+
+o Open the Windows command shell, copy the GLPK sources from the
+package and build the static library using (see also configure):
+sh ./configure --enable-static --disable-shared --with-pic --disable-dependency-tracking
+
+NOTE: one needs to provide chmod.exe, sleep.exe and uname.exe from
+cygwin somewhere in the PATH, otherwise configure won't work
+
+o copy the binaries to the path set in the GLPK_HOME variable in your
+environment 
+
+o TODO: currently one has to change the GLPK_LIBS = -lglpk_4_42
+according to the current version of GLPK in Makevars.win
+
+o Build the binary as usual.
