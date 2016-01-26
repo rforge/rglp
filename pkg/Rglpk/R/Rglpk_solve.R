@@ -114,6 +114,8 @@ function(lp_objective_coefficients, lp_n_of_objective_vars,
             ## lp_n_of_bounds_u            = as.integer(length(lp_upper_bounds_i)),
             lp_optimum                  = double(1),
             lp_objective_vars_values    = double(lp_n_of_objective_vars),
+            lp_objective_dual_values    = double(lp_n_of_objective_vars),
+            lp_objective_dual_aux       = double(lp_n_of_constraints),
             lp_verbosity                = as.integer(verbose),
             lp_status                   = integer(1),
             NAOK = TRUE, PACKAGE = "Rglpk")

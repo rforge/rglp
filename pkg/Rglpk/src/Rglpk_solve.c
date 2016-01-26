@@ -20,6 +20,8 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
 		  double *lp_bounds_upper,
 		  double *lp_optimum,
 		  double *lp_objective_vars_values,
+		  double *lp_objective_dual_values,
+		  double *lp_objective_dual_aux,
 		  int *lp_verbosity, int *lp_status) {
 
   glp_prob *lp;
@@ -104,6 +106,11 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
     // retrieve values of objective vars
     for(i = 0; i < *lp_number_of_objective_vars; i++) {
       lp_objective_vars_values[i] = glp_get_col_prim(lp, i+1);
+      lp_objective_dual_values[i] = glp_get_col_dual(lp, i+1);
+    }
+    // retrieve dual multipliers
+    for(i = 0; i < *lp_number_of_constraints; i++) {
+      lp_objective_dual_aux[i] = glp_get_row_dual(lp, i+1);
     }
     if(*lp_is_integer) {
       glp_intopt(lp, NULL);
