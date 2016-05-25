@@ -19,9 +19,12 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
 		  int *lp_bounds_type, double *lp_bounds_lower,
 		  double *lp_bounds_upper,
 		  double *lp_optimum,
+		  int *lp_col_stat,
 		  double *lp_objective_vars_values,
 		  double *lp_objective_dual_values,
-		  double *lp_objective_dual_aux,
+		  int *lp_row_stat,
+		  double *lp_row_prim_aux,
+		  double *lp_row_dual_aux,
 		  int *lp_verbosity, int *lp_status) {
 
   glp_prob *lp;
@@ -105,12 +108,15 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
     *lp_optimum = glp_get_obj_val(lp);
     // retrieve values of objective vars
     for(i = 0; i < *lp_number_of_objective_vars; i++) {
+      lp_col_stat[i] = glp_get_col_stat(lp, i+1);
       lp_objective_vars_values[i] = glp_get_col_prim(lp, i+1);
       lp_objective_dual_values[i] = glp_get_col_dual(lp, i+1);
     }
-    // retrieve dual multipliers
+    // retrieve primal/dual multipliers
     for(i = 0; i < *lp_number_of_constraints; i++) {
-      lp_objective_dual_aux[i] = glp_get_row_dual(lp, i+1);
+      lp_row_stat[i] = glp_get_row_stat(lp, i+1);
+      lp_row_prim_aux[i] = glp_get_row_prim(lp, i+1);
+      lp_row_dual_aux[i] = glp_get_row_dual(lp, i+1);
     }
     if(*lp_is_integer) {
       glp_intopt(lp, NULL);
@@ -122,6 +128,10 @@ void R_glp_solve (int *lp_direction, int *lp_number_of_constraints,
       // retrieve MIP values of objective vars
       for(i = 0; i < *lp_number_of_objective_vars; i++){
 	lp_objective_vars_values[i] = glp_mip_col_val(lp, i+1);
+      }
+      // retrieve MIP auxiliary variable values
+      for(i = 0; i < *lp_number_of_constraints; i++) {
+	lp_row_prim_aux[i] = glp_mip_row_val(lp, i+1);
       }
     }
     // delete problem object

@@ -79,7 +79,16 @@ function(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
       ## 0 -> optimal solution (5 in GLPK) else 1
       status <- as.integer(status != 5L)
   }
-  list(optimum = sum(solution * obj), solution = solution, status = status)
+    list(optimum = sum(solution * obj), solution = solution, status = status,
+         solution_dual = if( is_integer )
+                             NA
+                         else
+                             x$lp_objective_dual_values,
+         auxiliary = list( primal = x$lp_row_prim_aux,
+                           dual   = if( is_integer)
+                                        NA
+                                    else
+                                        x$lp_row_dual_aux))
 }
 
 ## this function calls the C interface
@@ -113,9 +122,12 @@ function(lp_objective_coefficients, lp_n_of_objective_vars,
             lp_bounds_upper             = as.double(lp_bounds_upper),
             ## lp_n_of_bounds_u            = as.integer(length(lp_upper_bounds_i)),
             lp_optimum                  = double(1),
+            lp_objective_stat           = integer(lp_n_of_objective_vars),
             lp_objective_vars_values    = double(lp_n_of_objective_vars),
             lp_objective_dual_values    = double(lp_n_of_objective_vars),
-            lp_objective_dual_aux       = double(lp_n_of_constraints),
+            lp_row_stat                 = integer(lp_n_of_constraints),
+            lp_row_prim_aux             = double(lp_n_of_constraints),
+            lp_row_dual_aux             = double(lp_n_of_constraints),
             lp_verbosity                = as.integer(verbose),
             lp_status                   = integer(1),
             NAOK = TRUE, PACKAGE = "Rglpk")
