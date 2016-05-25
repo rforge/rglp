@@ -52,6 +52,10 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
     (the default) then it will return 0 for the optimal solution being
     found, and non-zero otherwise. If the control parameter is set to
     \code{FALSE} it will return the GLPK status codes.}
+  \item{solution_dual}{variable reduced cost, if available (\code{NA} otherwise).}
+  \item{auxiliary}{a list with two vectors each containing the values of the
+    auxiliary variable associated with the respective constraint at
+    solution, primal and dual (if available, \code{NA} otherwise).}
 }
 \references{
   GNU Linear Programming Kit
