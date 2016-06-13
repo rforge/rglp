@@ -11,11 +11,14 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
 }
 \arguments{
   \item{obj}{a numeric vector representing the objective coefficients.}
-  \item{mat}{a numeric vector or a matrix of constraint coefficients.}
+  \item{mat}{a numeric vector or a matrix of constraint coefficients. If
+    the optimization problem is unconstrained then this must be
+    specified by passing a matrix of dimension 0 times the number of
+    objective variables.}
   \item{dir}{a character vector with the directions of the constraints.
-    Each element must be one of \code{"<"}, \code{"<="}, \code{">"},
-    \code{">="}, or \code{"=="}.}
-  \item{rhs}{the right hand side of the constraints.}
+    For a nonzero number of constraints each element must be one of
+    \code{"<"}, \code{"<="}, \code{">"}, \code{">="}, or \code{"=="}.}
+  \item{rhs}{a numeric vector representing the right hand side of the constraints.}
   \item{bounds}{\code{NULL} (default) or a list with elements
     \code{upper} and \code{lower} containing the indices and
     corresponding bounds of the objective variables.  The default for

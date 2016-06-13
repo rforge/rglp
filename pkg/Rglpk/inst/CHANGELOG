@@ -1,4 +1,5 @@
-2016-05-25  Stefan Theussl  <stefan.theussl@R-project.org>
+2016-06-13  Stefan Theussl  <stefan.theussl@R-project.org>
+	* ADDED: new control parameters "presolve" and "tm_limit"
 	* ADDED: reduced cost in return value (solution_dual)
 	* ADDED: value of auxiliary variable (primal|dual) in return value
 	* RELEASE: Rglpk 0.6-2 on CRAN
