@@ -38,7 +38,7 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
 }
 \details{
   GLPK is open source. The current version can be found at
-  \url{http://www.gnu.org/software/glpk/glpk.html}.  Package \pkg{Rglpk}
+  \url{https://www.gnu.org/software/glpk/glpk.html}.  Package \pkg{Rglpk}
   provides a high level solver function using the low level C interface
   of the GLPK solver. R interface packages which port all low level C routines
   of the GLPK API to R are also available. Consult the \sQuote{See Also}
@@ -80,10 +80,10 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
 }
 \references{
   GNU Linear Programming Kit
-  (\url{http://www.gnu.org/software/glpk/glpk.html}).
+  (\url{https://www.gnu.org/software/glpk/glpk.html}).
   
   GLPK Interface to R 
-  (\url{http://cran.R-project.org/package=Rglpk}).
+  (\url{https://cran.R-project.org/package=Rglpk}).
 }
 \author{Stefan Theussl and Kurt Hornik}
 \seealso{
