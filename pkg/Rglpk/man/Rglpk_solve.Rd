@@ -16,7 +16,10 @@ Rglpk_solve_LP(obj, mat, dir, rhs, bounds = NULL, types = NULL, max = FALSE,
     0 times the number of objective variables is required.}
   \item{dir}{a character vector with the directions of the constraints.
     For a nonzero number of constraints each element must be one of
-    \code{"<"}, \code{"<="}, \code{">"}, \code{">="}, or \code{"=="}.}
+    \code{"<"}, \code{"<="}, \code{">"}, \code{">="}, or
+    \code{"=="}. Note, however, that the GLPK API only allows for
+    non-strict inequalities. Strict inequalities are handled the same
+    way as non-strict inequalities.}
   \item{rhs}{a numeric vector representing the right hand side of the constraints.}
   \item{bounds}{\code{NULL} (default) or a list with elements
     \code{upper} and \code{lower} containing the indices and
