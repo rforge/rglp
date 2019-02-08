@@ -14,13 +14,13 @@ Rglpk_solve_LP <- function(obj, mat, dir, rhs, bounds = NULL, types = NULL, max 
     verb <- control$verbose
     sensitivity_report <- isTRUE(control$sensitivity_report)
 
-    Rglpk_call( obj = obj, mat = mat, dir = dir, rhs = rhs, bounds = bounds, 
-      types = types, max = max, canonicalize_status = canonicalize_status, 
+    Rglpk_call( obj = obj, mat = mat, dir = dir, rhs = rhs, bounds = bounds,
+      types = types, max = max, canonicalize_status = canonicalize_status,
       presolve = presolve, time_limit = time_limit, verb = verb,
       sensitivity_report = sensitivity_report)
 }
 
-Rglpk_call <- function(obj, mat, dir, rhs, bounds, types, max, canonicalize_status, 
+Rglpk_call <- function(obj, mat, dir, rhs, bounds, types, max, canonicalize_status,
   presolve, time_limit, verb, file = "", file_type = 0L, sensitivity_report = FALSE) {
   ## validate direction of optimization
   if(!identical( max, TRUE ) && !identical( max, FALSE ))
@@ -123,12 +123,12 @@ Rglpk_call <- function(obj, mat, dir, rhs, bounds, types, max, canonicalize_stat
   }
 
   if (sensitivity_report) {
-    sensitivity_report <- readLines(fname_sensitivity_report)
-    unlink(fname_sensitivity_report)
+      sensitivity_report <- readLines(fname_sensitivity_report)
+      file.remove(fname_sensitivity_report)
   } else {
     sensitivity_report <- NA_character_
   }
-  
+
   list(optimum = sum(solution * obj), solution = solution, status = status,
        solution_dual = if( is_integer ) NA else x$lp_objective_dual_values,
        auxiliary = list(primal = x$lp_row_prim_aux,
@@ -145,7 +145,7 @@ function(lp_objective_coefficients, lp_n_of_objective_vars,
          lp_objective_var_is_integer, lp_objective_var_is_binary,
          lp_direction_of_optimization,
          lp_bounds_type, lp_bounds_lower, lp_bounds_upper,
-         verbose, presolve, time_limit, write_fmt, fname, write_sensitivity_report, 
+         verbose, presolve, time_limit, write_fmt, fname, write_sensitivity_report,
          fname_sensitivity_report)
 {
   out <- .C(R_glp_solve,
@@ -180,7 +180,7 @@ function(lp_objective_coefficients, lp_n_of_objective_vars,
             lp_status                   = integer(1),
             write_fmt                   = as.integer(write_fmt),
             fname                       = as.character(fname),
-            write_sensitivity_report    = write_sensitivity_report, 
+            write_sensitivity_report    = write_sensitivity_report,
             fname_sensitivity_report    = fname_sensitivity_report,
             NAOK = TRUE, PACKAGE = "Rglpk")
   out
