@@ -124,6 +124,7 @@ Rglpk_call <- function(obj, mat, dir, rhs, bounds, types, max, canonicalize_stat
 
   if (sensitivity_report) {
     sensitivity_report <- readLines(fname_sensitivity_report)
+    unlink(fname_sensitivity_report)
   } else {
     sensitivity_report <- NA_character_
   }
